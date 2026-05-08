@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "LanecoverToolsWUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "LanecoverToolsWUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

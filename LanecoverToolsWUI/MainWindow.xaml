@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="LanecoverToolsWUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LanecoverToolsWUI"
+    xmlns:w3c="using:AssyntSoftware.WinUI3Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d"
+    Title="Lanecover Tool">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <ScrollViewer>
+        <Grid Padding="10">
+
+            <Grid.Resources>
+                <local:ThumbDouble x:Key="FormatConverter" />
+            </Grid.Resources>
+
+            <StackPanel>
+                <Border
+                x:Name="FolderSettings"
+                Grid.Row="0"
+                VariableSizedWrapGrid.ColumnSpan="1"
+                CornerRadius="10"          
+                Padding="20"       
+                Background="DimGray"   
+                Margin="5,0,5,15"  
+                BorderThickness="1">
+                    <Border.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Border.Transitions>
+                    <Grid>
+                        <StackPanel Spacing="8" HorizontalAlignment="Left">
+                            <Button x:Name="PickFolderButton" Content="Pick a folder" Click="PickFolderButton_Click" />
+                            <TextBlock x:Name="PickedFolderTextBlock" Text="No folder picked" />
+                        </StackPanel>
+                        <StackPanel HorizontalAlignment="Right">
+                            <Button x:Name="RevertButton" Content="Revert to old Scorebar" Click="RevertButton_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border
+                x:Name="ResSettings"
+                Grid.Row="1"
+                VariableSizedWrapGrid.ColumnSpan="1"
+                CornerRadius="10"          
+                Padding="20"       
+                Background="DimGray"   
+                Margin="5,0,5,15"  
+                BorderThickness="0">
+                    <StackPanel Orientation="Horizontal" Spacing="20" x:Name="ArPanel">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="Width"/>
+                            <ComboBox x:Name="WidthSelector" 
+                            Width="150"
+                            SelectedItem="{Binding SelectedWidth, Mode=TwoWay}" 
+                            ItemsSource="{x:Bind ResWidth}"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="Height"/>
+                            <ComboBox x:Name="HeightSelector" 
+                            Width="150"
+                            SelectedItem="{Binding SelectedHeight, Mode=TwoWay}" 
+                            ItemsSource="{x:Bind ResHeight}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border
+                x:Name="ApproachRate"
+                Grid.Row="2" 
+                CornerRadius="10"          
+                Padding="20"       
+                Background="DimGray"   
+                Margin="5,0,5,15"  
+                BorderThickness="1">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Base AR" />
+                            <TextBlock x:Name="baseArText"/>
+                        </StackPanel>
+                        <Slider Minimum="0" Maximum="11" Value="{x:Bind BaseAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="BaseArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Target AR" />
+                            <TextBlock x:Name="targetArText"/>
+                        </StackPanel>
+                        <Slider Minimum="0" Maximum="11" Value="{x:Bind TargetAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="TargetArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
+                    </StackPanel>
+                </Border>
+                <StackPanel x:Name="ArErrorMessage" Visibility="Collapsed" HorizontalAlignment="Center" Margin="0, -10, 0, 5">
+                    <TextBlock Text="Base AR cannot be higher than Target AR" x:Name="ArErrorMessageText" Foreground="Red"/>
+                </StackPanel>
+
+                <Border
+                x:Name="LaneOptions"
+                Grid.Row="3" 
+                CornerRadius="10"           
+                Padding="20"       
+                Background="DimGray"          
+                Margin="5,0,5,15"                
+                BorderThickness="1">
+                    <Border.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Border.Transitions>
+                    <StackPanel Orientation="Horizontal" Spacing="20" >
+                        <CheckBox Content="Accuracy Notch" VerticalContentAlignment="Center" x:Name="AccNotchCheckbox" Checked="AccNotchCheckbox_Checked" Unchecked="AccNotchCheckbox_Unchecked"/>
+                        <CheckBox Content="Transparency Gradient" VerticalContentAlignment="Center" x:Name="GradientCheckbox" Checked="GradientCheckbox_Checked" Unchecked="GradientCheckbox_Unchecked"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Lane Colour" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <w3c:SimpleColorPicker Grid.Row="1" IsMiniPalette="True" Color="{x:Bind ChosenColor, Mode=TwoWay}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border
+                    x:Name="GradientPanel" 
+                    Visibility="Collapsed"
+                    Opacity="0"
+                    Grid.Row="3" 
+                    CornerRadius="10"           
+                    Padding="20"       
+                    Background="DimGray"          
+                    Margin="5,0,5,15"                
+                    BorderThickness="1">
+                    <Border.OpacityTransition>
+                        <ScalarTransition />
+                    </Border.OpacityTransition>
+                    <Border.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Border.Transitions>
+
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <StackPanel.Transitions>
+                            <TransitionCollection>
+                                <RepositionThemeTransition />
+                            </TransitionCollection>
+                        </StackPanel.Transitions>
+                        <ComboBox 
+                            Header="Gradient Intensity"
+                            x:Name="IntensitySelector"
+                            Width="200" 
+                            ItemsSource="{x:Bind GradientOptions}"
+                            SelectedValue="{x:Bind GradientIntensity, Mode=TwoWay}"
+                            />
+                    </StackPanel>
+                </Border>
+
+                <Border
+                x:Name="NotchPanel" 
+                Visibility="Collapsed"
+                Opacity="0"
+                Grid.Row="3" 
+                CornerRadius="10"           
+                Padding="20"       
+                Background="DimGray"          
+                Margin="5,0,5,15"                
+                BorderThickness="1">
+                    <Border.OpacityTransition>
+                        <ScalarTransition />
+                    </Border.OpacityTransition>
+                    <Border.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Border.Transitions>
+
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <StackPanel.Transitions>
+                            <TransitionCollection>
+                                <RepositionThemeTransition />
+                            </TransitionCollection>
+                        </StackPanel.Transitions>
+                        <TextBox Header="Notch Width:" Text="{x:Bind NotchWidth}"/>
+                        <TextBox Header="Notch Height:" Text="{x:Bind NotchHeight}" />
+                        <TextBox Header="Notch X Offset:" Text="{x:Bind NotchXOffset}" />
+                        <TextBox Header="Notch Y Offset:" Text="{x:Bind NotchYOffset}" />
+                    </StackPanel>
+                </Border>
+                <Button Content="Generate" Grid.Row="4" HorizontalAlignment="Center" Width="400" Height="40" x:Name="GenerateButton" Click="GenerateButton_Click" IsEnabled="{x:Bind enablePath}">
+                    <Button.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Button.Transitions>
+                </Button>
+
+                <StackPanel x:Name="NoPathMessage" Visibility="Visible" HorizontalAlignment="Center" Margin="0, 5, 0, 5">
+                    <TextBlock Text="You need to choose a Path to generate a Lanecover" x:Name="NoPathMessageText" Foreground="Orange"/>
+                </StackPanel>
+
+                <StackPanel>
+                    <StackPanel.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </StackPanel.Transitions>
+                    <InfoBar
+                        x:Name="SuccessMessage"
+                        IsOpen="False"
+                        IsIconVisible="True"
+                        Severity="Success"
+                        IsClosable="True"
+                        Title="Success"
+                        Margin="15"
+                        Opacity="0"
+                        CloseButtonClick="SuccessMessage_CloseButtonClick"
+                        >
+                        <InfoBar.OpacityTransition>
+                            <ScalarTransition />
+                        </InfoBar.OpacityTransition>
+                    </InfoBar>
+                </StackPanel>
+            </StackPanel>
+            
+
+        </Grid>
+    </ScrollViewer>
+</Window>

@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37216.2
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanecoverToolsWUI", "LanecoverToolsWUI\LanecoverToolsWUI.csproj", "{0C6E2890-E510-4190-A224-964CCE933B80}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM64 = Debug|ARM64
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|ARM64 = Release|ARM64
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|ARM64.Build.0 = Debug|ARM64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x64.ActiveCfg = Debug|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x64.Build.0 = Debug|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x64.Deploy.0 = Debug|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x86.ActiveCfg = Debug|x86
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x86.Build.0 = Debug|x86
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x86.Deploy.0 = Debug|x86
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|ARM64.ActiveCfg = Release|ARM64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|ARM64.Build.0 = Release|ARM64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.ActiveCfg = Release|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Build.0 = Release|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Deploy.0 = Release|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.ActiveCfg = Release|x86
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.Build.0 = Release|x86
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.Deploy.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9317A377-9A6F-4746-B650-315D02C946B3}
+	EndGlobalSection
+EndGlobal
