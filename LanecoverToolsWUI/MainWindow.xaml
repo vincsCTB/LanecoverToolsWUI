@@ -101,7 +101,7 @@
                             <TextBlock Text="Target AR" />
                             <TextBlock x:Name="targetArText"/>
                         </StackPanel>
-                        <Slider Minimum="0" Maximum="11" Value="{x:Bind TargetAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="TargetArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
+                        <Slider x:Name="TargetArSlider" Minimum="0" Maximum="11" Value="{x:Bind TargetAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="TargetArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
                     </StackPanel>
                 </Border>
                 <StackPanel x:Name="ArErrorMessage" Visibility="Collapsed" HorizontalAlignment="Center" Margin="0, -10, 0, 5">
@@ -190,10 +190,10 @@
                                 <RepositionThemeTransition />
                             </TransitionCollection>
                         </StackPanel.Transitions>
-                        <TextBox Header="Notch Width:" Text="{x:Bind NotchWidth}"/>
-                        <TextBox Header="Notch Height:" Text="{x:Bind NotchHeight}" />
-                        <TextBox Header="Notch X Offset:" Text="{x:Bind NotchXOffset}" />
-                        <TextBox Header="Notch Y Offset:" Text="{x:Bind NotchYOffset}" />
+                        <TextBox x:Name="NotchW" Header="Notch Width:" Text="{x:Bind NotchWidth}"/>
+                        <TextBox x:Name="NotchH" Header="Notch Height:" Text="{x:Bind NotchHeight}" />
+                        <TextBox x:Name="NotchX" Header="Notch X Offset:" Text="{x:Bind NotchXOffset}" />
+                        <TextBox x:Name="NotchY" Header="Notch Y Offset:" Text="{x:Bind NotchYOffset}" />
                     </StackPanel>
                 </Border>
                 

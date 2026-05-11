@@ -1,6 +1,7 @@
 using LanecoverToolsWUI.Services;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -23,6 +24,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Windows.Storage;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -34,6 +36,8 @@ namespace LanecoverToolsWUI
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        ApplicationDataContainer localSettings = ApplicationData.Current.LocalSettings;
+
         private Windows.UI.Color _chosenColor;
         public Windows.UI.Color ChosenColor
         {
@@ -102,7 +106,7 @@ namespace LanecoverToolsWUI
         public bool disableGenButton { get; set; } = false;
         public bool enablePath { get; set; } = false;
         public bool autoMode { get; set; } = false;
-        public string chosenFolderPath { get; set; }
+        public string ChosenFolderPath { get; set; }
 
         DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
@@ -110,12 +114,17 @@ namespace LanecoverToolsWUI
         private CancellationTokenSource _cts;
         private Task _loopForArTask;
         private int _readDelay = 33;
+
+        private bool _isInitialised = false;
+
         public MainWindow()
         {
-            this.InitializeComponent();
+            this.InitializeComponent(); 
+            this.AppWindow.Closing += SaveUserSettings;
+            this.Activated += LoadUserSettings;
 
             KeyboardHook.SetHook(this);
-
+            
             var manager = WinUIEx.WindowManager.Get(this);
             manager.PersistenceId = "MainWindow";
             manager.MinWidth = 600;
@@ -146,7 +155,7 @@ namespace LanecoverToolsWUI
 
             if (autoMode)
             {
-                if (chosenFolderPath != null)
+                if (ChosenFolderPath != null)
                 {
                     if (osuStatus == 5 || osuStatus == 12)
                     {
@@ -197,6 +206,21 @@ namespace LanecoverToolsWUI
                     dispatcherQueue.TryEnqueue(() =>
                     {
                         BaseArSlider.Value = baseAddresses.Beatmap.Ar;
+                        if (BaseAr >= TargetAr)
+                        {
+                            disableGenButton = true;
+                            ArErrorMessage.Visibility = Visibility.Visible;
+                            GenerateButton.IsEnabled = false;
+                        }
+                        else
+                        {
+                            disableGenButton = false;
+                            ArErrorMessage.Visibility = Visibility.Collapsed;
+                            if (enablePath)
+                            {
+                                GenerateButton.IsEnabled = true;
+                            }
+                        }
                     });
                 } catch(Exception ex)
                 {
@@ -208,6 +232,91 @@ namespace LanecoverToolsWUI
                     initDiscard++;
                 }
                 await Task.Delay(_readDelay);
+            }
+        }
+
+        private async void SaveUserSettings(object sender, AppWindowClosingEventArgs args)
+        {
+            Func<bool> funcSaveData = () =>
+            {
+                ApplicationDataCompositeValue composite = new();
+                composite["path"] = ChosenFolderPath;
+                composite["height"] = SelectedHeight;
+                composite["width"] = SelectedWidth;
+                composite["targetAr"] = TargetAr;
+
+                composite["accNotch"] = AccNotchCb;
+                composite["notchHeight"] = NotchHeight;
+                composite["notchWidth"] = NotchWidth;
+                composite["notchXOffset"] = NotchXOffset;
+                composite["notchYOffset"] = NotchYOffset;
+
+                composite["gradient"] = GradientCb;
+                composite["gradientIntensity"] = GradientIntensity;
+
+                localSettings.Values["userSettings"] = composite;
+
+                return true;
+            };
+
+            var funcResult = await Task.Run(funcSaveData);
+
+            this.Close();
+        }
+
+        private async void LoadUserSettings(object sender, WindowActivatedEventArgs args)
+        {
+            if (!_isInitialised && args.WindowActivationState != WindowActivationState.Deactivated)
+            {
+                Windows.Storage.ApplicationDataCompositeValue composite = (ApplicationDataCompositeValue)localSettings.Values["userSettings"];
+                Func<bool> funcLoadData = () =>
+                {
+                    if (composite != null)
+                    {
+                        ChosenFolderPath = composite["path"] as string;
+                        SelectedHeight = (double)composite["height"];
+                        SelectedWidth = (double)composite["width"];
+                        TargetAr = (double)composite["targetAr"];
+
+                        AccNotchCb = (bool)composite["accNotch"];
+                        NotchHeight = (int)composite["notchHeight"];
+                        NotchWidth = (int)composite["notchWidth"];
+                        NotchXOffset = (int)composite["notchXOffset"];
+                        NotchYOffset = (int)composite["notchYOffset"];
+
+                        GradientCb = (bool)composite["gradient"];
+                        GradientIntensity = composite["gradientIntensity"] as string;
+
+                        dispatcherQueue.TryEnqueue(() =>
+                        {
+                            if (ChosenFolderPath != null)
+                            {
+                                PickedFolderTextBlock.Text = ChosenFolderPath;
+                                this.NoPathMessage.Visibility = Visibility.Collapsed;
+                                if (!disableGenButton) this.GenerateButton.IsEnabled = true;
+                                enablePath = true;
+                            }
+                            
+                            WidthSelector.SelectedValue = SelectedWidth;
+                            HeightSelector.SelectedValue = SelectedHeight;
+                            TargetArSlider.Value = TargetAr;
+
+                            AccNotchCheckbox.IsChecked = AccNotchCb;
+                            NotchH.Text = NotchHeight.ToString();
+                            NotchW.Text = NotchWidth.ToString();
+                            NotchX.Text = NotchXOffset.ToString();
+                            NotchY.Text = NotchYOffset.ToString();
+
+                            GradientCheckbox.IsChecked = GradientCb;
+                            IntensitySelector.SelectedValue = GradientIntensity;
+                        });
+                    }
+
+                    return true;
+                };
+
+                var funcResult = await Task.Run(funcLoadData);
+                _isInitialised = true;
             }
         }
 
@@ -308,7 +417,7 @@ namespace LanecoverToolsWUI
 
                 if (folder != null)
                 {
-                    chosenFolderPath = folder.Path;
+                    ChosenFolderPath = folder.Path;
                     this.NoPathMessage.Visibility = Visibility.Collapsed;
                     if (!disableGenButton) this.GenerateButton.IsEnabled = true;
                     enablePath = true;
