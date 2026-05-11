@@ -144,16 +144,23 @@ namespace LanecoverToolsWUI
             var baseAddresses = new OsuBaseAddresses();
             int osuStatus = ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
 
-            if (chosenFolderPath != null)
+            if (autoMode)
             {
-                if (autoMode)
+                if (chosenFolderPath != null)
                 {
                     if (osuStatus == 5 || osuStatus == 12)
                     {
                         GenerateLane();
                     }
                 }
-            }           
+                else
+                {
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        ShowNotification("Folder path is empty.", InfoBarSeverity.Error);
+                    });
+                }
+            }      
         }
 
         private T ReadProperty<T>(object readObj, string propName, T defaultValue = default) where T : struct
@@ -189,7 +196,6 @@ namespace LanecoverToolsWUI
                     baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
                     dispatcherQueue.TryEnqueue(() =>
                     {
-                        testArAuto.Text = "status :" + ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
                         BaseArSlider.Value = baseAddresses.Beatmap.Ar;
                     });
                 } catch(Exception ex)
