@@ -1,14 +1,10 @@
 using LanecoverToolsWUI.Services;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
 using Microsoft.Windows.Storage.Pickers;
 using System;
 using System.Collections.Generic;
@@ -17,16 +13,8 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Windows.Input;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.UI;
-using Windows.UI.Notifications;
-using Windows.UI.ViewManagement;
-using Color = Windows.UI.Color;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -39,7 +27,7 @@ namespace LanecoverToolsWUI
     public sealed partial class MainWindow : Window
     {
         private Windows.UI.Color _chosenColor;
-        public Color ChosenColor
+        public Windows.UI.Color ChosenColor
         {
             get { return _chosenColor; }
             set { SetProperty(ref _chosenColor, value); }
@@ -70,6 +58,7 @@ namespace LanecoverToolsWUI
             "Low", 
             "Lowest"
         };
+        public ObservableCollection<InfoBar> Notifications { get; } = new();
         private double _selectedHeight = 1080;
         public double SelectedHeight
         {
@@ -106,6 +95,8 @@ namespace LanecoverToolsWUI
         public bool enablePath { get; set; } = false;
         public string chosenFolderPath { get; set; }
 
+        DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
         public MainWindow()
         {
             this.InitializeComponent();
@@ -121,20 +112,53 @@ namespace LanecoverToolsWUI
             HeightSelector.IsEditable = true;
             WidthSelector.IsEditable = true;
 
-            ArPanel.DataContext = this;
+            ResPanel.DataContext = this;
 
-            this.baseArText.Text = "Current value: "+BaseAr;
-            this.targetArText.Text = "Current value: "+TargetAr;
+            baseArText.Text = "Current value: "+BaseAr;
+            targetArText.Text = "Current value: "+TargetAr;
 
             GradientIntensity = "High";
 
             ChosenColor = Colors.Black;
+
+            NotificationItemsControl.ItemsSource = Notifications;
         }
+
+        public void ShowNotification(string message, InfoBarSeverity severity, string? title = null, int autoCloseDurationMs = 5000)
+        {
+            var infoBar = new InfoBar
+            {
+                Message = message,
+                Severity = severity,
+                Title = title,
+                IsOpen = true,
+                IsClosable = true,
+            };
+
+            Notifications.Add(infoBar);
+
+            infoBar.Closed += (s, e) => Notifications.Remove(infoBar);
+
+            System.Diagnostics.Debug.WriteLine(infoBar.Message);
+
+            if (autoCloseDurationMs > 0)
+            {
+                var timer = new System.Threading.Timer(_ =>
+                {
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        infoBar.IsOpen = false;
+                    });
+                }, null, autoCloseDurationMs, System.Threading.Timeout.Infinite);
+            }
+        }
+
+        public void ClearNotifications() => Notifications.Clear();
 
         private void BaseArValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
             string msg = String.Format("Current value: {0:N1}", e.NewValue);
-            //this.baseArText.Text = msg;
+            this.baseArText.Text = msg;
             if (BaseAr >= TargetAr)
             {
                 disableGenButton = true;
@@ -155,17 +179,17 @@ namespace LanecoverToolsWUI
         private void TargetArValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
             string msg = String.Format("Current value: {0:N1}", e.NewValue);
-            //this.targetArText.Text = msg;
+            this.targetArText.Text = msg;
             if (BaseAr >= TargetAr)
             {
                 disableGenButton = true;
-                ArErrorMessage.Visibility = Visibility.Visible;
+                this.ArErrorMessage.Visibility = Visibility.Visible;
                 GenerateButton.IsEnabled = false;
             }
             else
             {
                 disableGenButton = false;
-                ArErrorMessage.Visibility = Visibility.Collapsed;
+                this.ArErrorMessage.Visibility = Visibility.Collapsed;
                 if (enablePath)
                 {
                     GenerateButton.IsEnabled = true;
@@ -198,8 +222,8 @@ namespace LanecoverToolsWUI
                 if (folder != null)
                 {
                     chosenFolderPath = folder.Path;
-                    NoPathMessage.Visibility = Visibility.Collapsed;
-                    if (!disableGenButton) GenerateButton.IsEnabled = true;
+                    this.NoPathMessage.Visibility = Visibility.Collapsed;
+                    if (!disableGenButton) this.GenerateButton.IsEnabled = true;
                     enablePath = true;
                 }
 
@@ -217,8 +241,6 @@ namespace LanecoverToolsWUI
 
                 LaneCalculatorService _laneCalculatorService = new();
                 ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
-
-                System.Diagnostics.Debug.WriteLine(AccNotchCb);
 
                 LaneGeneratorService _laneGeneratorService = new();
                 LaneGenerationSettings _laneGenerationSettings = new(
@@ -256,12 +278,9 @@ namespace LanecoverToolsWUI
                 }
                 finally
                 {
-                    SuccessMessage.IsOpen = true;
-                    SuccessMessage.Message = "The lane measures: " + laneHeight + "px";
-                    SuccessMessage.Opacity = 1;
+                    ShowNotification("The lane measures: " + laneHeight + "px", InfoBarSeverity.Success);
                 }
                 
-
                 // re-enable the button
                 button.IsEnabled = true;
             }
@@ -295,47 +314,54 @@ namespace LanecoverToolsWUI
         {
             CheckBox cb = sender as CheckBox;
             if (cb.Name == "GradientCheckbox") GradientCb = true;
-            GradientPanel.Visibility = Visibility.Visible;
-            GradientPanel.Opacity = 1;
-            System.Diagnostics.Debug.WriteLine(GradientOptions.ToString());
+            this.GradientPanel.Visibility = Visibility.Visible;
+            this.GradientPanel.Opacity = 1;
+            //System.Diagnostics.Debug.WriteLine(GradientOptions.ToString());
         }
 
         private void GradientCheckbox_Unchecked(object sender, RoutedEventArgs e)
         {
             CheckBox cb = sender as CheckBox;
             if (cb.Name == "GradientCheckbox") GradientCb = false;
-            GradientPanel.Visibility = Visibility.Collapsed;
-            GradientPanel.Opacity = 0;
+            this.GradientPanel.Visibility = Visibility.Collapsed;
+            this.GradientPanel.Opacity = 0;
         }
 
         private void AccNotchCheckbox_Checked(object sender, RoutedEventArgs e)
         {
             CheckBox cb = sender as CheckBox;
             if (cb.Name == "AccNotchCheckbox") AccNotchCb = true;
-            NotchPanel.Visibility = Visibility.Visible;
-            NotchPanel.Opacity = 1;
+            this.NotchPanel.Visibility = Visibility.Visible;
+            this.NotchPanel.Opacity = 1;
         }
 
         private void AccNotchCheckbox_Unchecked(object sender, RoutedEventArgs e)
         {
             CheckBox cb = sender as CheckBox;
             if (cb.Name == "AccNotchCheckbox") AccNotchCb = false;
-            NotchPanel.Visibility = Visibility.Collapsed;
-            NotchPanel.Opacity = 0;
+            this.NotchPanel.Visibility = Visibility.Collapsed;
+            this.NotchPanel.Opacity = 0;
         }
 
         private void RevertButton_Click(object sender, RoutedEventArgs e)
         {
             if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
             {
-                File.Delete((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
-                File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
-            }
-        }
-
-        private void SuccessMessage_CloseButtonClick(InfoBar sender, object args)
-        {
-            SuccessMessage.Opacity = 0;
+                try 
+                {
+                    File.Delete((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
+                    File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(ex);
+                }
+                finally
+                {
+                    ShowNotification("Lane reverted", InfoBarSeverity.Informational);
+                }
+                
+            }   
         }
     }
 

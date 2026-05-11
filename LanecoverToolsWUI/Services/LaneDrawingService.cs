@@ -28,13 +28,6 @@ namespace LanecoverToolsWUI.Services
         int NotchOffsetX,
         int NotchOffsetY
     );
-    public class LaneGenerationResult
-    {
-        public byte[] ImageData { get; set; }
-        public int CanvasWidth { get; set; }
-        public int CanvasHeightPx { get; set; }
-        public string ImageSrcBase64 { get; set; } 
-    }
 
     public class LaneGeneratorService
     {

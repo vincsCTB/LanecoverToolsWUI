@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.37216.2
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11723.231
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LanecoverToolsWUI", "LanecoverToolsWUI\LanecoverToolsWUI.csproj", "{0C6E2890-E510-4190-A224-964CCE933B80}"
 EndProject
@@ -25,9 +25,9 @@ Global
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Debug|x86.Deploy.0 = Debug|x86
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|ARM64.ActiveCfg = Release|ARM64
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|ARM64.Build.0 = Release|ARM64
-		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.ActiveCfg = Release|x64
-		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Build.0 = Release|x64
-		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Deploy.0 = Release|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.ActiveCfg = Debug|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Build.0 = Debug|x64
+		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x64.Deploy.0 = Debug|x64
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.ActiveCfg = Release|x86
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.Build.0 = Release|x86
 		{0C6E2890-E510-4190-A224-964CCE933B80}.Release|x86.Deploy.0 = Release|x86

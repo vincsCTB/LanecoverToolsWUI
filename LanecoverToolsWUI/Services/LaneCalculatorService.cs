@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace LanecoverToolsWUI.Services
 {
@@ -39,7 +38,7 @@ namespace LanecoverToolsWUI.Services
             for (int i = 0; i < 50; i++)
             {
                 currentValue -= 12;
-                System.Diagnostics.Debug.WriteLine("MS: "+currentValue+" ,AR: "+ double.Round((double)i / 10 + 0.1, 1)+" ,Actual: "+ double.Round(currentValue / arDeviation));
+                //System.Diagnostics.Debug.WriteLine("MS: "+currentValue+" ,AR: "+ double.Round((double)i / 10 + 0.1, 1)+" ,Actual: "+ double.Round(currentValue / arDeviation));
                 ar.Add(new ApproachRate(double.Round((double)i / 10 + 0.1, 1), currentValue, double.Round(currentValue / arDeviation)));
             };
 
@@ -48,7 +47,7 @@ namespace LanecoverToolsWUI.Services
             for (int i = 0; i < 60; i++)
             {
                 currentValue -= 15;
-                System.Diagnostics.Debug.WriteLine("MS: " + currentValue + " ,AR: " + double.Round((double)i / 10 + 5.1, 1) + " ,Actual: " + double.Round(currentValue / arDeviation));
+                //System.Diagnostics.Debug.WriteLine("MS: " + currentValue + " ,AR: " + double.Round((double)i / 10 + 5.1, 1) + " ,Actual: " + double.Round(currentValue / arDeviation));
                 ar.Add(new ApproachRate(double.Round((double)i / 10 + 5.1, 1), currentValue, double.Round(currentValue / arDeviation)));
             };
 

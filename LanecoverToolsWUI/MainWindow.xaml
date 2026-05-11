@@ -8,7 +8,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
-    mc:Ignorable="d"
     Title="Lanecover Tool">
 
     <Window.SystemBackdrop>
@@ -57,7 +56,7 @@
                 Background="DimGray"   
                 Margin="5,0,5,15"  
                 BorderThickness="0">
-                    <StackPanel Orientation="Horizontal" Spacing="20" x:Name="ArPanel">
+                    <StackPanel Orientation="Horizontal" Spacing="20" x:Name="ResPanel">
                         <StackPanel Spacing="5">
                             <TextBlock Text="Width"/>
                             <ComboBox x:Name="WidthSelector" 
@@ -85,11 +84,18 @@
                 Margin="5,0,5,15"  
                 BorderThickness="1">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="Base AR" />
-                            <TextBlock x:Name="baseArText"/>
-                        </StackPanel>
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="auto"/>
+                                <ColumnDefinition Width="auto"/>
+                                <ColumnDefinition Width="auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Base AR" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" x:Name="baseArText" VerticalAlignment="Center"/>
+                            <ToggleButton Grid.Column="2" Content="Auto" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                        </Grid>
                         <Slider Minimum="0" Maximum="11" Value="{x:Bind BaseAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="BaseArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
+                        
 
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="Target AR" />
@@ -202,28 +208,31 @@
                     <TextBlock Text="You need to choose a Path to generate a Lanecover" x:Name="NoPathMessageText" Foreground="Orange"/>
                 </StackPanel>
 
-                <StackPanel>
-                    <StackPanel.Transitions>
+                <ItemsControl
+                    x:Name="NotificationItemsControl"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,5,0,0">
+
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+
+                    <ItemsControl.ItemContainerTransitions>
                         <TransitionCollection>
-                            <RepositionThemeTransition />
+                            <AddDeleteThemeTransition />
                         </TransitionCollection>
-                    </StackPanel.Transitions>
-                    <InfoBar
-                        x:Name="SuccessMessage"
-                        IsOpen="False"
-                        IsIconVisible="True"
-                        Severity="Success"
-                        IsClosable="True"
-                        Title="Success"
-                        Margin="15"
-                        Opacity="0"
-                        CloseButtonClick="SuccessMessage_CloseButtonClick"
-                        >
-                        <InfoBar.OpacityTransition>
-                            <ScalarTransition />
-                        </InfoBar.OpacityTransition>
-                    </InfoBar>
-                </StackPanel>
+                    </ItemsControl.ItemContainerTransitions>
+
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentPresenter Content="{Binding Notifications}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    
+                </ItemsControl>
             </StackPanel>
             
 
