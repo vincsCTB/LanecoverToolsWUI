@@ -6,14 +6,22 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.Windows.Storage.Pickers;
+using OsuMemoryDataProvider;
+using OsuMemoryDataProvider.OsuMemoryModels;
+using OsuMemoryDataProvider.OsuMemoryModels.Direct;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -72,7 +80,7 @@ namespace LanecoverToolsWUI
             set { SetProperty(ref _selectedWidth, value); }
         }
         private double _baseAr = 5;
-        private double _targetAr= 5;
+        private double _targetAr = 5;
         public double BaseAr 
         {
             get { return _baseAr; }
@@ -93,13 +101,20 @@ namespace LanecoverToolsWUI
         public int NotchYOffset { get; set; }
         public bool disableGenButton { get; set; } = false;
         public bool enablePath { get; set; } = false;
+        public bool autoMode { get; set; } = false;
         public string chosenFolderPath { get; set; }
 
         DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
+        private StructuredOsuMemoryReader _sreader;
+        private CancellationTokenSource _cts;
+        private Task _loopForArTask;
+        private int _readDelay = 33;
         public MainWindow()
         {
             this.InitializeComponent();
+
+            KeyboardHook.SetHook(this);
 
             var manager = WinUIEx.WindowManager.Get(this);
             manager.PersistenceId = "MainWindow";
@@ -122,6 +137,72 @@ namespace LanecoverToolsWUI
             ChosenColor = Colors.Black;
 
             NotificationItemsControl.ItemsSource = Notifications;
+        }
+        
+        public void HandleMacroPress()
+        {
+            var baseAddresses = new OsuBaseAddresses();
+            int osuStatus = ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
+
+            if (chosenFolderPath != null)
+            {
+                if (autoMode)
+                {
+                    if (osuStatus == 5 || osuStatus == 12)
+                    {
+                        GenerateLane();
+                    }
+                }
+            }           
+        }
+
+        private T ReadProperty<T>(object readObj, string propName, T defaultValue = default) where T : struct
+        {
+            if (_sreader.TryReadProperty(readObj, propName, out var readResult))
+                return (T)readResult;
+
+            return defaultValue;
+        }
+
+        private async void loopForAr()
+        {
+            var baseAddresses = new OsuBaseAddresses();
+            int initDiscard = 0;
+
+            while (true)
+            {
+                if (_cts.IsCancellationRequested)
+                    return;
+
+                if (!_sreader.CanRead && initDiscard > 5)
+                {
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        ShowNotification("osu! process not found", InfoBarSeverity.Warning);
+                    });
+                    await Task.Delay(_readDelay);
+                    continue;
+                }
+
+                try
+                {
+                    baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        testArAuto.Text = "status :" + ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
+                        BaseArSlider.Value = baseAddresses.Beatmap.Ar;
+                    });
+                } catch(Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(ex);
+                }
+
+                if (initDiscard <= 5)
+                {
+                    initDiscard++;
+                }
+                await Task.Delay(_readDelay);
+            }
         }
 
         public void ShowNotification(string message, InfoBarSeverity severity, string? title = null, int autoCloseDurationMs = 5000)
@@ -232,6 +313,52 @@ namespace LanecoverToolsWUI
             }
         }
 
+        private async void GenerateLane()
+        {
+            LaneCalculatorService _laneCalculatorService = new();
+            ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
+
+            LaneGeneratorService _laneGeneratorService = new();
+            LaneGenerationSettings _laneGenerationSettings = new(
+                BaseAr,
+                TargetAr,
+                (int)SelectedHeight,
+                (int)SelectedWidth,
+                ChosenColor,
+                PickedFolderTextBlock.Text,
+                laneHeight,
+                GradientCb,
+                GradientIntensity,
+                AccNotchCb,
+                NotchHeight,
+                NotchWidth,
+                NotchXOffset,
+                NotchYOffset
+                );
+            Bitmap result = _laneGeneratorService.Generate(_laneGenerationSettings);
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine(Path.GetFullPath(PickedFolderTextBlock.Text));
+                if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"))
+                {
+                    if (!File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
+                    {
+                        File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png")); //Save old scorebar as scorebar-bg.old
+                    }
+                }
+                result.Save(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png", ImageFormat.Png);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
+            finally
+            {
+                ShowNotification("The lane measures: " + laneHeight + "px", InfoBarSeverity.Success);
+            }
+        }
+
         private async void GenerateButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button)
@@ -239,47 +366,7 @@ namespace LanecoverToolsWUI
                 // disable the button to avoid double-clicking
                 button.IsEnabled = false;
 
-                LaneCalculatorService _laneCalculatorService = new();
-                ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
-
-                LaneGeneratorService _laneGeneratorService = new();
-                LaneGenerationSettings _laneGenerationSettings = new(
-                    BaseAr,
-                    TargetAr,
-                    (int)SelectedHeight,
-                    (int)SelectedWidth,
-                    ChosenColor,
-                    PickedFolderTextBlock.Text,
-                    laneHeight,
-                    GradientCb,
-                    GradientIntensity,
-                    AccNotchCb,
-                    NotchHeight,
-                    NotchWidth,
-                    NotchXOffset,
-                    NotchYOffset
-                    );
-                Bitmap result = _laneGeneratorService.Generate(_laneGenerationSettings);
-                
-                try
-                {
-                    System.Diagnostics.Debug.WriteLine(Path.GetFullPath(PickedFolderTextBlock.Text));
-                    if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"))
-                    {
-                        if (!File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
-                        {
-                            File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png")); //Save old scorebar as scorebar-bg.old
-                        }
-                    }
-                    result.Save(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png", ImageFormat.Png);
-                }
-                catch (Exception ex) {
-                    System.Diagnostics.Debug.WriteLine(ex);
-                }
-                finally
-                {
-                    ShowNotification("The lane measures: " + laneHeight + "px", InfoBarSeverity.Success);
-                }
+                GenerateLane();
                 
                 // re-enable the button
                 button.IsEnabled = true;
@@ -359,10 +446,37 @@ namespace LanecoverToolsWUI
                 finally
                 {
                     ShowNotification("Lane reverted", InfoBarSeverity.Informational);
-                }
-                
+                }            
             }   
         }
+
+        private void ToggleButton_Checked(object sender, RoutedEventArgs e)
+        {
+            autoMode = true;
+            _sreader = StructuredOsuMemoryReader.GetInstance(new("osu!", "osu!"));
+            dispatcherQueue.TryEnqueue(() => { 
+                BaseArSlider.IsEnabled = false; 
+            });
+            _cts = new CancellationTokenSource();
+            _loopForArTask = Task.Run(loopForAr, _cts.Token);
+        }
+
+        private async void ToggleButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            _cts.Cancel();
+            try
+            {
+               await _loopForArTask;
+            } catch (ObjectDisposedException ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            } finally 
+            {
+                _cts.Dispose();
+                autoMode = false;
+                dispatcherQueue.TryEnqueue(() => { BaseArSlider.IsEnabled = true; });         
+            }
+        }      
     }
 
     public class ThumbDouble : IValueConverter

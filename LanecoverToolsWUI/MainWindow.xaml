@@ -92,9 +92,9 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Base AR" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" x:Name="baseArText" VerticalAlignment="Center"/>
-                            <ToggleButton Grid.Column="2" Content="Auto" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                            <ToggleButton Grid.Column="2" Content="Auto" VerticalAlignment="Center" HorizontalAlignment="Right" Checked="ToggleButton_Checked" Unchecked="{x:Bind ToggleButton_Unchecked}"/>
                         </Grid>
-                        <Slider Minimum="0" Maximum="11" Value="{x:Bind BaseAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="BaseArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
+                        <Slider x:Name="BaseArSlider" Minimum="0" Maximum="11" Value="{x:Bind BaseAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="BaseArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
                         
 
                         <StackPanel Orientation="Horizontal" Spacing="10">
