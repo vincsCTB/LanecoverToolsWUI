@@ -116,6 +116,7 @@ namespace LanecoverToolsWUI
         private int _readDelay = 33;
 
         private bool _isInitialised = false;
+        private IntPtr _hookId;
 
         public MainWindow()
         {
@@ -123,7 +124,7 @@ namespace LanecoverToolsWUI
             this.AppWindow.Closing += SaveUserSettings;
             this.Activated += LoadUserSettings;
 
-            KeyboardHook.SetHook(this);
+            _hookId = KeyboardHook.SetHook(this);
             
             var manager = WinUIEx.WindowManager.Get(this);
             manager.PersistenceId = "MainWindow";
@@ -143,7 +144,7 @@ namespace LanecoverToolsWUI
 
             GradientIntensity = "High";
 
-            ChosenColor = Colors.Black;
+            ChosenColor = Microsoft.UI.Colors.Black;
 
             NotificationItemsControl.ItemsSource = Notifications;
         }
@@ -268,6 +269,11 @@ namespace LanecoverToolsWUI
         {
             if (!_isInitialised && args.WindowActivationState != WindowActivationState.Deactivated)
             {
+                if (!localSettings.Values.ContainsKey("userSettings"))
+                {
+                    _isInitialised = true;
+                    return;
+                }
                 Windows.Storage.ApplicationDataCompositeValue composite = (ApplicationDataCompositeValue)localSettings.Values["userSettings"];
                 Func<bool> funcLoadData = () =>
                 {
