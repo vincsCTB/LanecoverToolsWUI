@@ -193,10 +193,10 @@ namespace LanecoverToolsWUI
 
                 if (KeyboardHook.IsF2Pressed)
                 {
-                    Debug.WriteLine("Pressed F2");
-                    await Task.Delay(_readDelay*15); // DONT SPAM F2
-                    KeyboardHook.IsF2Pressed = false;
-                    continue;
+                   // Debug.WriteLine("Pressed F2");
+                   //// await Task.Delay(_readDelay*30); // DONT SPAM F2
+                   // KeyboardHook.IsF2Pressed = false;
+                   // //continue;
                 }
 
                 if (!_sreader.CanRead && initDiscard > 5)
@@ -211,28 +211,30 @@ namespace LanecoverToolsWUI
 
                 try
                 {
-                    baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
+                    if (_sreader.CanRead) { 
+                        baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
                  
-                    dispatcherQueue.TryEnqueue(() =>
-                    {
-                    BaseArSlider.Value = baseAddresses.Beatmap.Ar;
+                        dispatcherQueue.TryEnqueue(() =>
+                        {
+                        BaseArSlider.Value = baseAddresses.Beatmap.Ar;
                     
-                        if (BaseAr >= TargetAr)
-                        {
-                            disableGenButton = true;
-                            ArErrorMessage.Visibility = Visibility.Visible;
-                            GenerateButton.IsEnabled = false;
-                        }
-                        else
-                        {
-                            disableGenButton = false;
-                            ArErrorMessage.Visibility = Visibility.Collapsed;
-                            if (enablePath)
+                            if (BaseAr >= TargetAr)
                             {
-                                GenerateButton.IsEnabled = true;
+                                disableGenButton = true;
+                                ArErrorMessage.Visibility = Visibility.Visible;
+                                GenerateButton.IsEnabled = false;
                             }
-                        }
-                    });
+                            else
+                            {
+                                disableGenButton = false;
+                                ArErrorMessage.Visibility = Visibility.Collapsed;
+                                if (enablePath)
+                                {
+                                    GenerateButton.IsEnabled = true;
+                                }
+                            }
+                        });
+                    }
                 } catch(Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine(ex);
