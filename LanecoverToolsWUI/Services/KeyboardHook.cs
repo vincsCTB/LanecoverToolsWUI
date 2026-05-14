@@ -43,8 +43,6 @@ namespace LanecoverToolsWUI.Services
             {
                 int vkCode = Marshal.ReadInt32(lParam);
 
-                IsF2Pressed = vkCode == VK_F2;
-
                 if (vkCode == VK_X)
                 {
                     bool shiftPressed = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;

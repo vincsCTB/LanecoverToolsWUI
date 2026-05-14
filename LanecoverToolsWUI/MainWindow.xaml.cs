@@ -191,14 +191,6 @@ namespace LanecoverToolsWUI
                 if (_cts.IsCancellationRequested)
                     return;
 
-                if (KeyboardHook.IsF2Pressed)
-                {
-                   // Debug.WriteLine("Pressed F2");
-                   //// await Task.Delay(_readDelay*30); // DONT SPAM F2
-                   // KeyboardHook.IsF2Pressed = false;
-                   // //continue;
-                }
-
                 if (!_sreader.CanRead && initDiscard > 5)
                 {
                     dispatcherQueue.TryEnqueue(() =>
@@ -211,8 +203,8 @@ namespace LanecoverToolsWUI
 
                 try
                 {
-                    if (_sreader.CanRead) { 
-                        baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
+                    if (_sreader.CanRead) {
+                        _sreader.TryRead(baseAddresses.Beatmap);
                  
                         dispatcherQueue.TryEnqueue(() =>
                         {
