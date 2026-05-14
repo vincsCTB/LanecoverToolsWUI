@@ -21,6 +21,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -36,8 +37,6 @@ namespace LanecoverToolsWUI
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        ApplicationDataContainer localSettings = ApplicationData.Current.LocalSettings;
-
         private Windows.UI.Color _chosenColor;
         public Windows.UI.Color ChosenColor
         {
@@ -107,6 +106,7 @@ namespace LanecoverToolsWUI
         public bool enablePath { get; set; } = false;
         public bool autoMode { get; set; } = false;
         public string ChosenFolderPath { get; set; }
+        private readonly string _osuWindowTitleHint;
 
         DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
@@ -191,6 +191,14 @@ namespace LanecoverToolsWUI
                 if (_cts.IsCancellationRequested)
                     return;
 
+                if (KeyboardHook.IsF2Pressed)
+                {
+                    Debug.WriteLine("Pressed F2");
+                    await Task.Delay(_readDelay*15); // DONT SPAM F2
+                    KeyboardHook.IsF2Pressed = false;
+                    continue;
+                }
+
                 if (!_sreader.CanRead && initDiscard > 5)
                 {
                     dispatcherQueue.TryEnqueue(() =>
@@ -204,9 +212,11 @@ namespace LanecoverToolsWUI
                 try
                 {
                     baseAddresses.Beatmap.Ar = ReadProperty<float>(baseAddresses.Beatmap, nameof(CurrentBeatmap.Ar), -5f);
+                 
                     dispatcherQueue.TryEnqueue(() =>
                     {
-                        BaseArSlider.Value = baseAddresses.Beatmap.Ar;
+                    BaseArSlider.Value = baseAddresses.Beatmap.Ar;
+                    
                         if (BaseAr >= TargetAr)
                         {
                             disableGenButton = true;
@@ -240,22 +250,22 @@ namespace LanecoverToolsWUI
         {
             Func<bool> funcSaveData = () =>
             {
-                ApplicationDataCompositeValue composite = new();
-                composite["path"] = ChosenFolderPath;
-                composite["height"] = SelectedHeight;
-                composite["width"] = SelectedWidth;
-                composite["targetAr"] = TargetAr;
+                var settings = new UserSettings(
+                            ChosenFolderPath = ChosenFolderPath,
+                            SelectedHeight = SelectedHeight,
+                            SelectedWidth = SelectedWidth,
+                            TargetAr = TargetAr,
+                            AccNotchCb = AccNotchCb,
+                            NotchHeight = NotchHeight,
+                            NotchWidth = NotchWidth,
+                            NotchXOffset = NotchXOffset,
+                            NotchYOffset = NotchYOffset,
+                            GradientCb = GradientCb,
+                            GradientIntensity = GradientIntensity
+                        );
 
-                composite["accNotch"] = AccNotchCb;
-                composite["notchHeight"] = NotchHeight;
-                composite["notchWidth"] = NotchWidth;
-                composite["notchXOffset"] = NotchXOffset;
-                composite["notchYOffset"] = NotchYOffset;
-
-                composite["gradient"] = GradientCb;
-                composite["gradientIntensity"] = GradientIntensity;
-
-                localSettings.Values["userSettings"] = composite;
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText("userSettings.json", json);
 
                 return true;
             };
@@ -269,60 +279,62 @@ namespace LanecoverToolsWUI
         {
             if (!_isInitialised && args.WindowActivationState != WindowActivationState.Deactivated)
             {
-                if (!localSettings.Values.ContainsKey("userSettings"))
+                if (File.Exists("userSettings.json"))
                 {
-                    _isInitialised = true;
-                    return;
-                }
-                Windows.Storage.ApplicationDataCompositeValue composite = (ApplicationDataCompositeValue)localSettings.Values["userSettings"];
-                Func<bool> funcLoadData = () =>
-                {
-                    if (composite != null)
+                    string json = File.ReadAllText("userSettings.json");
+                    var loadedSettings = JsonSerializer.Deserialize<UserSettings>(json);
+
+                    Debug.WriteLine(Path.GetFullPath("userSettings.json"));
+
+                    Func<bool> funcLoadData = () =>
                     {
-                        ChosenFolderPath = composite["path"] as string;
-                        SelectedHeight = (double)composite["height"];
-                        SelectedWidth = (double)composite["width"];
-                        TargetAr = (double)composite["targetAr"];
-
-                        AccNotchCb = (bool)composite["accNotch"];
-                        NotchHeight = (int)composite["notchHeight"];
-                        NotchWidth = (int)composite["notchWidth"];
-                        NotchXOffset = (int)composite["notchXOffset"];
-                        NotchYOffset = (int)composite["notchYOffset"];
-
-                        GradientCb = (bool)composite["gradient"];
-                        GradientIntensity = composite["gradientIntensity"] as string;
-
-                        dispatcherQueue.TryEnqueue(() =>
+                        if (loadedSettings != null)
                         {
-                            if (ChosenFolderPath != null)
+                            ChosenFolderPath = loadedSettings.ChosenFolderPath;
+                            SelectedHeight = loadedSettings.SelectedHeight;
+                            SelectedWidth = loadedSettings.SelectedWidth;
+                            TargetAr = loadedSettings.TargetAr;
+
+                            AccNotchCb = loadedSettings.AccNotchCb;
+                            NotchHeight = loadedSettings.NotchHeight;
+                            NotchWidth = loadedSettings.NotchWidth;
+                            NotchXOffset = loadedSettings.NotchXOffset;
+                            NotchYOffset = loadedSettings.NotchYOffset;
+
+                            GradientCb = loadedSettings.GradientCb;
+                            GradientIntensity = loadedSettings.GradientIntensity;
+
+                            dispatcherQueue.TryEnqueue(() =>
                             {
-                                PickedFolderTextBlock.Text = ChosenFolderPath;
-                                this.NoPathMessage.Visibility = Visibility.Collapsed;
-                                if (!disableGenButton) this.GenerateButton.IsEnabled = true;
-                                enablePath = true;
-                            }
-                            
-                            WidthSelector.SelectedValue = SelectedWidth;
-                            HeightSelector.SelectedValue = SelectedHeight;
-                            TargetArSlider.Value = TargetAr;
+                                if (ChosenFolderPath != null)
+                                {
+                                    PickedFolderTextBlock.Text = ChosenFolderPath;
+                                    this.NoPathMessage.Visibility = Visibility.Collapsed;
+                                    if (!disableGenButton) this.GenerateButton.IsEnabled = true;
+                                    enablePath = true;
+                                }
 
-                            AccNotchCheckbox.IsChecked = AccNotchCb;
-                            NotchH.Text = NotchHeight.ToString();
-                            NotchW.Text = NotchWidth.ToString();
-                            NotchX.Text = NotchXOffset.ToString();
-                            NotchY.Text = NotchYOffset.ToString();
+                                WidthSelector.SelectedValue = SelectedWidth;
+                                HeightSelector.SelectedValue = SelectedHeight;
+                                TargetArSlider.Value = TargetAr;
 
-                            GradientCheckbox.IsChecked = GradientCb;
-                            IntensitySelector.SelectedValue = GradientIntensity;
-                        });
-                    }
+                                AccNotchCheckbox.IsChecked = AccNotchCb;
+                                NotchH.Text = NotchHeight.ToString();
+                                NotchW.Text = NotchWidth.ToString();
+                                NotchX.Text = NotchXOffset.ToString();
+                                NotchY.Text = NotchYOffset.ToString();
 
-                    return true;
-                };
+                                GradientCheckbox.IsChecked = GradientCb;
+                                IntensitySelector.SelectedValue = GradientIntensity;
+                            });
+                        }
 
-                var funcResult = await Task.Run(funcLoadData);
-                _isInitialised = true;
+                        return true;
+                    };
+
+                    var funcResult = await Task.Run(funcLoadData);
+                    _isInitialised = true;
+                }   
             }
         }
 
@@ -574,7 +586,8 @@ namespace LanecoverToolsWUI
         private void ToggleButton_Checked(object sender, RoutedEventArgs e)
         {
             autoMode = true;
-            _sreader = StructuredOsuMemoryReader.GetInstance(new("osu!", "osu!"));
+            
+            _sreader = StructuredOsuMemoryReader.GetInstance(new("osu!"));
             dispatcherQueue.TryEnqueue(() => { 
                 BaseArSlider.IsEnabled = false; 
             });
@@ -610,6 +623,36 @@ namespace LanecoverToolsWUI
         public object ConvertBack(object value, Type targetType, object parameter, string language)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public class UserSettings
+    {
+        public string ChosenFolderPath { get; set; } = String.Empty;
+        public double SelectedHeight { get; set; }
+        public double SelectedWidth { get; set; }
+        public double TargetAr { get; set; }
+        public bool AccNotchCb { get; set; }
+        public int NotchHeight { get; set; }
+        public int NotchWidth { get; set; }
+        public int NotchXOffset { get; set; }
+        public int NotchYOffset { get; set; }
+        public bool GradientCb { get; set; }
+        public string GradientIntensity { get; set; } = String.Empty;
+
+        public UserSettings(string chosenFolderPath, double selectedHeight, double selectedWidth, double targetAr, bool accNotchCb, int notchHeight, int notchWidth, int notchXOffset, int notchYOffset, bool gradientCb, string gradientIntensity)
+        {
+            ChosenFolderPath = chosenFolderPath;
+            SelectedHeight = selectedHeight;
+            SelectedWidth = selectedWidth;
+            TargetAr = targetAr;
+            AccNotchCb = accNotchCb;
+            NotchHeight = notchHeight;
+            NotchWidth = notchWidth;
+            NotchXOffset = notchXOffset;
+            NotchYOffset = notchYOffset;
+            GradientCb = gradientCb;
+            GradientIntensity = gradientIntensity;
         }
     }
 }

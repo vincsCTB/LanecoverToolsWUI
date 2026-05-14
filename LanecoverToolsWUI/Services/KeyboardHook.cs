@@ -15,6 +15,7 @@ namespace LanecoverToolsWUI.Services
         private static LowLevelKeyboardProc _proc = HookCallback;
         private static nint _hookID = nint.Zero;
         private static MainWindow _mainWindow;
+        public static bool IsF2Pressed;
 
         public static nint SetHook(MainWindow mainWindow)
         {
@@ -34,12 +35,15 @@ namespace LanecoverToolsWUI.Services
         private const int VK_CONTROL = 0x11;
         private const int VK_SHIFT = 0x10;
         private const int VK_X = 0x58;
+        private const int VK_F2 = 0x71;
         private static nint HookCallback(
             int nCode, nint wParam, nint lParam)
         {
             if (nCode >= 0 && wParam == WM_KEYDOWN)
             {
                 int vkCode = Marshal.ReadInt32(lParam);
+
+                IsF2Pressed = vkCode == VK_F2;
 
                 if (vkCode == VK_X)
                 {
