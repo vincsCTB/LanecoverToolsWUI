@@ -95,7 +95,7 @@
                             <ToggleButton Grid.Column="2" Content="Auto" VerticalAlignment="Center" HorizontalAlignment="Right" Checked="ToggleButton_Checked" Unchecked="{x:Bind ToggleButton_Unchecked}"/>
                         </Grid>
                         <Slider x:Name="BaseArSlider" Minimum="0" Maximum="11" Value="{x:Bind BaseAr, Mode=TwoWay}" StepFrequency="0.1" ValueChanged="BaseArValueChanged" SnapsTo="StepValues" TickFrequency="1" TickPlacement="Outside" ThumbToolTipValueConverter="{StaticResource FormatConverter}"/>
-                        
+
 
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="Target AR" />
@@ -196,7 +196,7 @@
                         <TextBox x:Name="NotchY" Header="Notch Y Offset:" Text="{x:Bind NotchYOffset}" />
                     </StackPanel>
                 </Border>
-                
+
                 <Button Content="Generate" Grid.Row="4" HorizontalAlignment="Center" Width="400" Height="40" x:Name="GenerateButton" Click="GenerateButton_Click" IsEnabled="{x:Bind enablePath}">
                     <Button.Transitions>
                         <TransitionCollection>
@@ -204,14 +204,6 @@
                         </TransitionCollection>
                     </Button.Transitions>
                 </Button>
-
-                <TextBlock Text="You can press CTRL + SHIFT + X to generate while in Auto mode" FontSize="12" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,5,0,5">
-                    <TextBlock.Transitions>
-                        <TransitionCollection>
-                            <RepositionThemeTransition />
-                        </TransitionCollection>
-                    </TextBlock.Transitions>
-                </TextBlock>
 
                 <StackPanel x:Name="NoPathMessage" Visibility="Visible" HorizontalAlignment="Center" Margin="0, 5, 0, 5">
                     <TextBlock Text="You need to choose a Path to generate a Lanecover" x:Name="NoPathMessageText" Foreground="Orange"/>
@@ -240,11 +232,19 @@
                             <ContentPresenter Content="{Binding Notifications}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                    
+
                 </ItemsControl>
             </StackPanel>
-            
 
+            <Button
+                x:Name="SettingsButton"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="20"
+                Click="SettingsButton_Click"
+                ToolTipService.ToolTip="Settings">
+                <SymbolIcon Symbol="Setting"/>
+            </Button>
         </Grid>
     </ScrollViewer>
 </Window>

@@ -1,3 +1,4 @@
+using LanecoverToolsWUI.Ressources;
 using LanecoverToolsWUI.Services;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -6,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.Storage.Pickers;
 using OsuMemoryDataProvider;
 using OsuMemoryDataProvider.OsuMemoryModels;
@@ -37,6 +39,7 @@ namespace LanecoverToolsWUI
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        private OsuBaseAddresses baseAddresses = new();
         private Windows.UI.Color _chosenColor;
         public Windows.UI.Color ChosenColor
         {
@@ -106,9 +109,11 @@ namespace LanecoverToolsWUI
         public bool enablePath { get; set; } = false;
         public bool autoMode { get; set; } = false;
         public string ChosenFolderPath { get; set; }
-        private readonly string _osuWindowTitleHint;
+        public List<int> GenerationHotkey { get; set; }
+        public List<int> RevertHotkey { get; set; }
 
         DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        public UserSettings UserSettings { get; set; }
 
         private StructuredOsuMemoryReader _sreader;
         private CancellationTokenSource _cts;
@@ -149,16 +154,16 @@ namespace LanecoverToolsWUI
             NotificationItemsControl.ItemsSource = Notifications;
         }
         
-        public void HandleMacroPress()
+        public void HandleGenerationMacroPress()
         {
-            var baseAddresses = new OsuBaseAddresses();
-            int osuStatus = ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
+            _sreader.TryRead(baseAddresses.GeneralData);
+            Debug.WriteLine("pressed");
 
             if (autoMode)
             {
                 if (ChosenFolderPath != null)
                 {
-                    if (osuStatus == 5 || osuStatus == 12)
+                    if (baseAddresses.GeneralData.RawStatus == 5 || baseAddresses.GeneralData.RawStatus == 12)
                     {
                         GenerateLane();
                     }
@@ -173,17 +178,31 @@ namespace LanecoverToolsWUI
             }      
         }
 
-        private T ReadProperty<T>(object readObj, string propName, T defaultValue = default) where T : struct
+        public void HandleRevertMacroPress()
         {
-            if (_sreader.TryReadProperty(readObj, propName, out var readResult))
-                return (T)readResult;
+            _sreader.TryRead(baseAddresses.GeneralData);
 
-            return defaultValue;
+            if (autoMode)
+            {
+                if (ChosenFolderPath != null)
+                {
+                    if (baseAddresses.GeneralData.RawStatus == 5 || baseAddresses.GeneralData.RawStatus == 12)
+                    {
+                        RevertLane();
+                    }
+                }
+                else
+                {
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        ShowNotification("Folder path is empty.", InfoBarSeverity.Error);
+                    });
+                }
+            }
         }
 
         private async void loopForAr()
         {
-            var baseAddresses = new OsuBaseAddresses();
             int initDiscard = 0;
 
             while (true)
@@ -242,29 +261,21 @@ namespace LanecoverToolsWUI
 
         private async void SaveUserSettings(object sender, AppWindowClosingEventArgs args)
         {
-            Func<bool> funcSaveData = () =>
-            {
-                var settings = new UserSettings(
-                            ChosenFolderPath = ChosenFolderPath,
-                            SelectedHeight = SelectedHeight,
-                            SelectedWidth = SelectedWidth,
-                            TargetAr = TargetAr,
-                            AccNotchCb = AccNotchCb,
-                            NotchHeight = NotchHeight,
-                            NotchWidth = NotchWidth,
-                            NotchXOffset = NotchXOffset,
-                            NotchYOffset = NotchYOffset,
-                            GradientCb = GradientCb,
-                            GradientIntensity = GradientIntensity
-                        );
-
-                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText("userSettings.json", json);
-
-                return true;
-            };
-
-            var funcResult = await Task.Run(funcSaveData);
+            await UserSettingsService.SaveUserSettingsAsync(
+                ChosenFolderPath,
+                SelectedHeight,
+                SelectedWidth,
+                TargetAr,
+                AccNotchCb,
+                NotchHeight,
+                NotchWidth,
+                NotchXOffset,
+                NotchYOffset,
+                GradientCb,
+                GradientIntensity,
+                GenerationHotkey,
+                RevertHotkey
+            );
 
             this.Close();
         }
@@ -273,62 +284,53 @@ namespace LanecoverToolsWUI
         {
             if (!_isInitialised && args.WindowActivationState != WindowActivationState.Deactivated)
             {
-                if (File.Exists("userSettings.json"))
+                var loadedSettings = await UserSettingsService.LoadUserSettingsAsync();
+                if (loadedSettings != null)
                 {
-                    string json = File.ReadAllText("userSettings.json");
-                    var loadedSettings = JsonSerializer.Deserialize<UserSettings>(json);
+                    ChosenFolderPath = loadedSettings.ChosenFolderPath;
+                    SelectedHeight = loadedSettings.SelectedHeight;
+                    SelectedWidth = loadedSettings.SelectedWidth;
+                    TargetAr = loadedSettings.TargetAr;
 
-                    Debug.WriteLine(Path.GetFullPath("userSettings.json"));
+                    AccNotchCb = loadedSettings.AccNotchCb;
+                    NotchHeight = loadedSettings.NotchHeight;
+                    NotchWidth = loadedSettings.NotchWidth;
+                    NotchXOffset = loadedSettings.NotchXOffset;
+                    NotchYOffset = loadedSettings.NotchYOffset;
 
-                    Func<bool> funcLoadData = () =>
+                    GradientCb = loadedSettings.GradientCb;
+                    GradientIntensity = loadedSettings.GradientIntensity;
+
+                    GenerationHotkey = loadedSettings.GenerationHotkey;
+                    RevertHotkey = loadedSettings.RevertHotkey;
+
+                    dispatcherQueue.TryEnqueue(() =>
                     {
-                        if (loadedSettings != null)
+                        if (ChosenFolderPath != null)
                         {
-                            ChosenFolderPath = loadedSettings.ChosenFolderPath;
-                            SelectedHeight = loadedSettings.SelectedHeight;
-                            SelectedWidth = loadedSettings.SelectedWidth;
-                            TargetAr = loadedSettings.TargetAr;
-
-                            AccNotchCb = loadedSettings.AccNotchCb;
-                            NotchHeight = loadedSettings.NotchHeight;
-                            NotchWidth = loadedSettings.NotchWidth;
-                            NotchXOffset = loadedSettings.NotchXOffset;
-                            NotchYOffset = loadedSettings.NotchYOffset;
-
-                            GradientCb = loadedSettings.GradientCb;
-                            GradientIntensity = loadedSettings.GradientIntensity;
-
-                            dispatcherQueue.TryEnqueue(() =>
-                            {
-                                if (ChosenFolderPath != null)
-                                {
-                                    PickedFolderTextBlock.Text = ChosenFolderPath;
-                                    this.NoPathMessage.Visibility = Visibility.Collapsed;
-                                    if (!disableGenButton) this.GenerateButton.IsEnabled = true;
-                                    enablePath = true;
-                                }
-
-                                WidthSelector.SelectedValue = SelectedWidth;
-                                HeightSelector.SelectedValue = SelectedHeight;
-                                TargetArSlider.Value = TargetAr;
-
-                                AccNotchCheckbox.IsChecked = AccNotchCb;
-                                NotchH.Text = NotchHeight.ToString();
-                                NotchW.Text = NotchWidth.ToString();
-                                NotchX.Text = NotchXOffset.ToString();
-                                NotchY.Text = NotchYOffset.ToString();
-
-                                GradientCheckbox.IsChecked = GradientCb;
-                                IntensitySelector.SelectedValue = GradientIntensity;
-                            });
+                            PickedFolderTextBlock.Text = ChosenFolderPath;
+                            this.NoPathMessage.Visibility = Visibility.Collapsed;
+                            if (!disableGenButton) this.GenerateButton.IsEnabled = true;
+                            enablePath = true;
                         }
 
-                        return true;
-                    };
+                        WidthSelector.SelectedValue = SelectedWidth;
+                        HeightSelector.SelectedValue = SelectedHeight;
+                        TargetArSlider.Value = TargetAr;
 
-                    var funcResult = await Task.Run(funcLoadData);
-                    _isInitialised = true;
-                }   
+                        AccNotchCheckbox.IsChecked = AccNotchCb;
+                        NotchH.Text = NotchHeight.ToString();
+                        NotchW.Text = NotchWidth.ToString();
+                        NotchX.Text = NotchXOffset.ToString();
+                        NotchY.Text = NotchYOffset.ToString();
+
+                        GradientCheckbox.IsChecked = GradientCb;
+                        IntensitySelector.SelectedValue = GradientIntensity;
+                    });
+
+                    UserSettings = loadedSettings;
+                }
+                _isInitialised = true;
             }
         }
 
@@ -500,7 +502,7 @@ namespace LanecoverToolsWUI
             }
         }
 
-        public string HandleButtonClick()
+        public string HandleGenerateButtonClick()
         {
             LaneCalculatorService _laneCalculatorService = new();
             ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
@@ -508,7 +510,6 @@ namespace LanecoverToolsWUI
             return laneHeight.ToString();
         }
 
-        // --- Helper Method for INotifyPropertyChanged (Cleaner code) ---
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
@@ -517,7 +518,6 @@ namespace LanecoverToolsWUI
             return true;
         }
 
-        // --- INotifyPropertyChanged Implementation ---
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
@@ -557,11 +557,11 @@ namespace LanecoverToolsWUI
             this.NotchPanel.Opacity = 0;
         }
 
-        private void RevertButton_Click(object sender, RoutedEventArgs e)
+        private void RevertLane()
         {
             if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
             {
-                try 
+                try
                 {
                     File.Delete((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
                     File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
@@ -573,8 +573,12 @@ namespace LanecoverToolsWUI
                 finally
                 {
                     ShowNotification("Lane reverted", InfoBarSeverity.Informational);
-                }            
-            }   
+                }
+            }
+        }
+        private void RevertButton_Click(object sender, RoutedEventArgs e)
+        {
+            RevertLane();
         }
 
         private void ToggleButton_Checked(object sender, RoutedEventArgs e)
@@ -604,7 +608,21 @@ namespace LanecoverToolsWUI
                 autoMode = false;
                 dispatcherQueue.TryEnqueue(() => { BaseArSlider.IsEnabled = true; });         
             }
-        }      
+        }
+        private async void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Settings",
+                Content = new SettingsPage(this),
+                Width = 400,
+                CloseButtonText = "Close",
+                XamlRoot = this.Content.XamlRoot,
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            await dialog.ShowAsync();
+        }
     }
 
     public class ThumbDouble : IValueConverter
@@ -617,36 +635,6 @@ namespace LanecoverToolsWUI
         public object ConvertBack(object value, Type targetType, object parameter, string language)
         {
             throw new NotImplementedException();
-        }
-    }
-
-    public class UserSettings
-    {
-        public string ChosenFolderPath { get; set; } = String.Empty;
-        public double SelectedHeight { get; set; }
-        public double SelectedWidth { get; set; }
-        public double TargetAr { get; set; }
-        public bool AccNotchCb { get; set; }
-        public int NotchHeight { get; set; }
-        public int NotchWidth { get; set; }
-        public int NotchXOffset { get; set; }
-        public int NotchYOffset { get; set; }
-        public bool GradientCb { get; set; }
-        public string GradientIntensity { get; set; } = String.Empty;
-
-        public UserSettings(string chosenFolderPath, double selectedHeight, double selectedWidth, double targetAr, bool accNotchCb, int notchHeight, int notchWidth, int notchXOffset, int notchYOffset, bool gradientCb, string gradientIntensity)
-        {
-            ChosenFolderPath = chosenFolderPath;
-            SelectedHeight = selectedHeight;
-            SelectedWidth = selectedWidth;
-            TargetAr = targetAr;
-            AccNotchCb = accNotchCb;
-            NotchHeight = notchHeight;
-            NotchWidth = notchWidth;
-            NotchXOffset = notchXOffset;
-            NotchYOffset = notchYOffset;
-            GradientCb = gradientCb;
-            GradientIntensity = gradientIntensity;
         }
     }
 }

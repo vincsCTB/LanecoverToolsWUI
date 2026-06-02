@@ -41,6 +41,7 @@
     <None Remove="Assets\BadgeLogo.scale-400.png" />
     <None Remove="Assets\Square44x44Logo.scale-100.png" />
     <None Remove="Assets\Square44x44Logo.scale-400.png" />
+    <None Remove="SettingsPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -78,6 +79,12 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.8" />
     <PackageReference Include="WinUIEx" Version="2.9.0" />
 	<PackageReference Include="System.Reflection.Metadata" Version="10.0.8" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Page Update="SettingsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <!--

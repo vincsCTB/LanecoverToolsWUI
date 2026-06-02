@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LanecoverToolsWUI.Ressources;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -15,7 +16,6 @@ namespace LanecoverToolsWUI.Services
         private static LowLevelKeyboardProc _proc = HookCallback;
         private static nint _hookID = nint.Zero;
         private static MainWindow _mainWindow;
-        public static bool IsF2Pressed;
 
         public static nint SetHook(MainWindow mainWindow)
         {
@@ -31,11 +31,6 @@ namespace LanecoverToolsWUI.Services
         public delegate nint LowLevelKeyboardProc(
             int nCode, nint wParam, nint lParam);
 
-
-        private const int VK_CONTROL = 0x11;
-        private const int VK_SHIFT = 0x10;
-        private const int VK_X = 0x58;
-        private const int VK_F2 = 0x71;
         private static nint HookCallback(
             int nCode, nint wParam, nint lParam)
         {
@@ -43,14 +38,28 @@ namespace LanecoverToolsWUI.Services
             {
                 int vkCode = Marshal.ReadInt32(lParam);
 
-                if (vkCode == VK_X)
+                
+
+                if (vkCode == _mainWindow.GenerationHotkey[2])
                 {
-                    bool shiftPressed = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-                    bool ctrlPressed = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+                    bool shiftPressed = (GetAsyncKeyState(_mainWindow.GenerationHotkey[0]) & 0x8000) != 0;
+                    bool ctrlPressed = (GetAsyncKeyState(_mainWindow.GenerationHotkey[1]) & 0x8000) != 0;
 
                     if (shiftPressed && ctrlPressed)
                     {
-                        _mainWindow.HandleMacroPress();
+                        Debug.WriteLine("Inside Hook");
+                        _mainWindow.HandleGenerationMacroPress();
+                    }
+                }
+
+                if (vkCode == _mainWindow.RevertHotkey[2])
+                {
+                    bool shiftPressed = (GetAsyncKeyState(_mainWindow.RevertHotkey[0]) & 0x8000) != 0;
+                    bool ctrlPressed = (GetAsyncKeyState(_mainWindow.RevertHotkey[1]) & 0x8000) != 0;
+
+                    if (shiftPressed && ctrlPressed)
+                    {
+                        _mainWindow.HandleRevertMacroPress();
                     }
                 }
             }
