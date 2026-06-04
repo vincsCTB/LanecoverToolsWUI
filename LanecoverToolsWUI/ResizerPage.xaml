@@ -68,7 +68,10 @@
                         <MenuFlyoutSeparator Margin="0,10,0,10" />
 
                         <StackPanel x:Name="ResizeOptions" Spacing="5">
-                            <CheckBox VerticalContentAlignment="Center" Content="Resize Overlays" />
+                            <CheckBox
+                                VerticalContentAlignment="Center"
+                                Content="Resize Overlays"
+                                IsChecked="{x:Bind ResizeOverlays, Mode=TwoWay}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -80,7 +83,8 @@
                     Margin="0,10,0,0"
                     HorizontalAlignment="Center"
                     Click="ResizeButton_Click"
-                    Content="Resize Image">
+                    Content="Resize Image"
+                    IsEnabled="{x:Bind enablePath}">
                     <Button.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />
