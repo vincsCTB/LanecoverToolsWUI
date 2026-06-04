@@ -26,6 +26,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Windows.Storage;
+using Windows.System;
+using Windows.UI.WindowManagement;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -37,616 +39,123 @@ namespace LanecoverToolsWUI
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        private Windows.UI.Color _chosenColor;
-        public Windows.UI.Color ChosenColor
-        {
-            get { return _chosenColor; }
-            set { SetProperty(ref _chosenColor, value); }
-        }
-        public ObservableCollection<Double> ResWidth { get; set; } = new ObservableCollection<Double>
-        {
-            360,
-            720,
-            1080,
-            1440,
-            1920, // Standard Full HD
-            2560,
-            3840  // Ultra Wide / High Res
-        };
-        public ObservableCollection<Double> ResHeight { get; set; } = new ObservableCollection<Double>
-        {
-            1080,
-            1440,
-            2160, // 4K UHD
-            720,  // HD
-            576   // Portrait HD
-        };
-        public ObservableCollection<String> GradientOptions { get; set; } = new ObservableCollection<String>
-        {
-            "Highest", 
-            "High", 
-            "Medium", 
-            "Low", 
-            "Lowest"
-        };
-        public ObservableCollection<InfoBar> Notifications { get; } = new();
-        private double _selectedHeight = 1080;
-        public double SelectedHeight
-        {
-            get => _selectedHeight;
-            set { SetProperty(ref _selectedHeight, value); } // Calls OnPropertyChanged automatically
-        }
-        private double _selectedWidth = 1920;
-        public double SelectedWidth
-        {
-            get => _selectedWidth;
-            set { SetProperty(ref _selectedWidth, value); }
-        }
-        private double _baseAr = 5;
-        private double _targetAr = 5;
-        public double BaseAr 
-        {
-            get { return _baseAr; }
-            set { SetProperty(ref _baseAr, double.Round(value, 1)); }
-        }
-        public double TargetAr
-        {
-            get { return _targetAr; }
-            set { SetProperty(ref _targetAr, double.Round(value, 1)); }
-        }
-        public ICommand ButtonCommand { get; set; }
-        public bool GradientCb { get; set; } = false;
-        public string GradientIntensity { get; set; }
-        public bool AccNotchCb { get; set; } = false;
-        public int NotchWidth { get; set; } = 200;
-        public int NotchHeight { get; set; } = 100;
-        public int NotchXOffset { get; set; }
-        public int NotchYOffset { get; set; }
-        public bool disableGenButton { get; set; } = false;
-        public bool enablePath { get; set; } = false;
-        public bool autoMode { get; set; } = false;
-        public string ChosenFolderPath { get; set; }
-        private readonly string _osuWindowTitleHint;
-
-        DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
-
         private StructuredOsuMemoryReader _sreader;
-        private CancellationTokenSource _cts;
-        private Task _loopForArTask;
-        private int _readDelay = 33;
-
-        private bool _isInitialised = false;
         private IntPtr _hookId;
+        private OsuBaseAddresses baseAddresses = new();
+
+        public List<int> GenerationHotkey { get; set; }
+        public List<int> RevertHotkey { get; set; }
 
         public MainWindow()
         {
-            this.InitializeComponent(); 
-            this.AppWindow.Closing += SaveUserSettings;
-            this.Activated += LoadUserSettings;
-
+            InitializeComponent();
+            this.AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
             _hookId = KeyboardHook.SetHook(this);
-            
+
+            this.AppWindow.Closing += MainWindow_Closing;
+
+            NavView.SelectedItem = Lane;
+            ContentFrame.Navigate(typeof(LanePage));
+
             var manager = WinUIEx.WindowManager.Get(this);
             manager.PersistenceId = "MainWindow";
             manager.MinWidth = 600;
             manager.MinHeight = 600;
 
-            manager.Width = 600;
-            manager.Height = 900;
-
-            HeightSelector.IsEditable = true;
-            WidthSelector.IsEditable = true;
-
-            ResPanel.DataContext = this;
-
-            baseArText.Text = "Current value: "+BaseAr;
-            targetArText.Text = "Current value: "+TargetAr;
-
-            GradientIntensity = "High";
-
-            ChosenColor = Microsoft.UI.Colors.Black;
-
-            NotificationItemsControl.ItemsSource = Notifications;
+            manager.Width = 1200;
+            manager.Height = 700;
         }
-        
-        public void HandleMacroPress()
-        {
-            var baseAddresses = new OsuBaseAddresses();
-            int osuStatus = ReadProperty<int>(baseAddresses.GeneralData, nameof(GeneralData.RawStatus), -5);
 
-            if (autoMode)
+        private void MainWindow_Closing(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
+        {
+
+            // Commits everything cleanly to userSettings.json without async thread clipping
+            UserSettingsService.SaveUserSettings();
+        }
+
+        private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+        {
+            // FIX: Guard against execution before the XAML parser instantiates the Frame
+            if (ContentFrame == null) return;
+
+            if (args.IsSettingsSelected)
             {
-                if (ChosenFolderPath != null)
-                {
-                    if (osuStatus == 5 || osuStatus == 12)
-                    {
-                        GenerateLane();
-                    }
-                }
-                else
-                {
-                    dispatcherQueue.TryEnqueue(() =>
-                    {
-                        ShowNotification("Folder path is empty.", InfoBarSeverity.Error);
-                    });
-                }
-            }      
-        }
-
-        private T ReadProperty<T>(object readObj, string propName, T defaultValue = default) where T : struct
-        {
-            if (_sreader.TryReadProperty(readObj, propName, out var readResult))
-                return (T)readResult;
-
-            return defaultValue;
-        }
-
-        private async void loopForAr()
-        {
-            var baseAddresses = new OsuBaseAddresses();
-            int initDiscard = 0;
-
-            while (true)
+                // Navigate to the built-in Settings page
+                ContentFrame.Navigate(typeof(SettingsPage));
+            }
+            else if (args.SelectedItemContainer is NavigationViewItem selectedItem)
             {
-                if (_cts.IsCancellationRequested)
-                    return;
-
-                if (!_sreader.CanRead && initDiscard > 5)
+                // Map tags to actual Page types
+                Type pageType = selectedItem.Tag switch
                 {
-                    dispatcherQueue.TryEnqueue(() =>
-                    {
-                        ShowNotification("osu! process not found", InfoBarSeverity.Warning);
-                    });
-                    await Task.Delay(_readDelay);
-                    continue;
+                    "LanePage" => typeof(LanePage),
+                    "ResizerPage" => typeof(ResizerPage),
+                    _ => null
+                };
+
+                // Prevent redundant navigation to the page we are already viewing
+                if (pageType != null && ContentFrame.CurrentSourcePageType != pageType)
+                {
+                    ContentFrame.Navigate(pageType);
                 }
+            }
+        }
 
-                try
+        private void ContentFrame_NavigationFailed(object sender, Microsoft.UI.Xaml.Navigation.NavigationFailedEventArgs e)
+        {
+            throw new Exception($"Failed to load Page {e.SourcePageType.FullName}");
+        }
+
+        public void HandleGenerationMacroPress()
+        {
+            _sreader.TryRead(baseAddresses.GeneralData);
+
+            if (ContentFrame.Content is LanePage lanePage)
+            {
+                if (lanePage.autoMode)
                 {
-                    if (_sreader.CanRead) {
-                        _sreader.TryRead(baseAddresses.Beatmap);
-                 
-                        dispatcherQueue.TryEnqueue(() =>
+                    if (lanePage.ChosenFolderPath != null)
+                    {
+                        if (baseAddresses.GeneralData.RawStatus == 5 || baseAddresses.GeneralData.RawStatus == 12)
                         {
-                        BaseArSlider.Value = baseAddresses.Beatmap.Ar;
-                    
-                            if (BaseAr >= TargetAr)
-                            {
-                                disableGenButton = true;
-                                ArErrorMessage.Visibility = Visibility.Visible;
-                                GenerateButton.IsEnabled = false;
-                            }
-                            else
-                            {
-                                disableGenButton = false;
-                                ArErrorMessage.Visibility = Visibility.Collapsed;
-                                if (enablePath)
-                                {
-                                    GenerateButton.IsEnabled = true;
-                                }
-                            }
+                            lanePage.GenerateLane();
+                        }
+                    }
+                    else
+                    {
+                        lanePage.dispatcherQueue.TryEnqueue(() =>
+                        {
+                            lanePage.ShowNotification("Folder path is empty.", InfoBarSeverity.Error);
                         });
                     }
-                } catch(Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex);
-                }
-
-                if (initDiscard <= 5)
-                {
-                    initDiscard++;
-                }
-                await Task.Delay(_readDelay);
+                }        
             }
         }
 
-        private async void SaveUserSettings(object sender, AppWindowClosingEventArgs args)
+        public void HandleRevertMacroPress()
         {
-            Func<bool> funcSaveData = () =>
+            _sreader.TryRead(baseAddresses.GeneralData);
+
+            if (ContentFrame.Content is LanePage lanePage)
             {
-                var settings = new UserSettings(
-                            ChosenFolderPath = ChosenFolderPath,
-                            SelectedHeight = SelectedHeight,
-                            SelectedWidth = SelectedWidth,
-                            TargetAr = TargetAr,
-                            AccNotchCb = AccNotchCb,
-                            NotchHeight = NotchHeight,
-                            NotchWidth = NotchWidth,
-                            NotchXOffset = NotchXOffset,
-                            NotchYOffset = NotchYOffset,
-                            GradientCb = GradientCb,
-                            GradientIntensity = GradientIntensity
-                        );
-
-                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText("userSettings.json", json);
-
-                return true;
-            };
-
-            var funcResult = await Task.Run(funcSaveData);
-
-            this.Close();
-        }
-
-        private async void LoadUserSettings(object sender, WindowActivatedEventArgs args)
-        {
-            if (!_isInitialised && args.WindowActivationState != WindowActivationState.Deactivated)
-            {
-                if (File.Exists("userSettings.json"))
+                if (lanePage.autoMode)
                 {
-                    string json = File.ReadAllText("userSettings.json");
-                    var loadedSettings = JsonSerializer.Deserialize<UserSettings>(json);
-
-                    Debug.WriteLine(Path.GetFullPath("userSettings.json"));
-
-                    Func<bool> funcLoadData = () =>
+                    if (lanePage.ChosenFolderPath != null)
                     {
-                        if (loadedSettings != null)
+                        if (baseAddresses.GeneralData.RawStatus == 5 || baseAddresses.GeneralData.RawStatus == 12)
                         {
-                            ChosenFolderPath = loadedSettings.ChosenFolderPath;
-                            SelectedHeight = loadedSettings.SelectedHeight;
-                            SelectedWidth = loadedSettings.SelectedWidth;
-                            TargetAr = loadedSettings.TargetAr;
-
-                            AccNotchCb = loadedSettings.AccNotchCb;
-                            NotchHeight = loadedSettings.NotchHeight;
-                            NotchWidth = loadedSettings.NotchWidth;
-                            NotchXOffset = loadedSettings.NotchXOffset;
-                            NotchYOffset = loadedSettings.NotchYOffset;
-
-                            GradientCb = loadedSettings.GradientCb;
-                            GradientIntensity = loadedSettings.GradientIntensity;
-
-                            dispatcherQueue.TryEnqueue(() =>
-                            {
-                                if (ChosenFolderPath != null)
-                                {
-                                    PickedFolderTextBlock.Text = ChosenFolderPath;
-                                    this.NoPathMessage.Visibility = Visibility.Collapsed;
-                                    if (!disableGenButton) this.GenerateButton.IsEnabled = true;
-                                    enablePath = true;
-                                }
-
-                                WidthSelector.SelectedValue = SelectedWidth;
-                                HeightSelector.SelectedValue = SelectedHeight;
-                                TargetArSlider.Value = TargetAr;
-
-                                AccNotchCheckbox.IsChecked = AccNotchCb;
-                                NotchH.Text = NotchHeight.ToString();
-                                NotchW.Text = NotchWidth.ToString();
-                                NotchX.Text = NotchXOffset.ToString();
-                                NotchY.Text = NotchYOffset.ToString();
-
-                                GradientCheckbox.IsChecked = GradientCb;
-                                IntensitySelector.SelectedValue = GradientIntensity;
-                            });
+                            lanePage.RevertLane();
                         }
-
-                        return true;
-                    };
-
-                    var funcResult = await Task.Run(funcLoadData);
-                    _isInitialised = true;
-                }   
-            }
-        }
-
-        public void ShowNotification(string message, InfoBarSeverity severity, string? title = null, int autoCloseDurationMs = 5000)
-        {
-            var infoBar = new InfoBar
-            {
-                Message = message,
-                Severity = severity,
-                Title = title,
-                IsOpen = true,
-                IsClosable = true,
-            };
-
-            Notifications.Add(infoBar);
-
-            infoBar.Closed += (s, e) => Notifications.Remove(infoBar);
-
-            System.Diagnostics.Debug.WriteLine(infoBar.Message);
-
-            if (autoCloseDurationMs > 0)
-            {
-                var timer = new System.Threading.Timer(_ =>
-                {
-                    dispatcherQueue.TryEnqueue(() =>
+                    }
+                    else
                     {
-                        infoBar.IsOpen = false;
-                    });
-                }, null, autoCloseDurationMs, System.Threading.Timeout.Infinite);
-            }
-        }
-
-        public void ClearNotifications() => Notifications.Clear();
-
-        private void BaseArValueChanged(object sender, RangeBaseValueChangedEventArgs e)
-        {
-            string msg = String.Format("Current value: {0:N1}", e.NewValue);
-            this.baseArText.Text = msg;
-            if (BaseAr >= TargetAr)
-            {
-                disableGenButton = true;
-                ArErrorMessage.Visibility = Visibility.Visible;
-                GenerateButton.IsEnabled = false;
-            }
-            else
-            {
-                disableGenButton = false;
-                ArErrorMessage.Visibility = Visibility.Collapsed;
-                if (enablePath)
-                {
-                    GenerateButton.IsEnabled = true;
-                } 
-            }
-        }
-
-        private void TargetArValueChanged(object sender, RangeBaseValueChangedEventArgs e)
-        {
-            string msg = String.Format("Current value: {0:N1}", e.NewValue);
-            this.targetArText.Text = msg;
-            if (BaseAr >= TargetAr)
-            {
-                disableGenButton = true;
-                this.ArErrorMessage.Visibility = Visibility.Visible;
-                GenerateButton.IsEnabled = false;
-            }
-            else
-            {
-                disableGenButton = false;
-                this.ArErrorMessage.Visibility = Visibility.Collapsed;
-                if (enablePath)
-                {
-                    GenerateButton.IsEnabled = true;
-                }
-            }
-        }
-
-        private async void PickFolderButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button)
-            {
-                // disable the button to avoid double-clicking
-                button.IsEnabled = false;
-
-                // Clear previous returned folder name
-                PickedFolderTextBlock.Text = "";
-
-                var picker = new FolderPicker(button.XamlRoot.ContentIslandEnvironment.AppWindowId);
-
-                picker.CommitButtonText = "Pick Folder";
-                picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-                picker.ViewMode = PickerViewMode.List;
-
-                // Show the picker dialog window
-                var folder = await picker.PickSingleFolderAsync();
-                PickedFolderTextBlock.Text = folder != null
-                    ? folder.Path
-                    : "No folder selected.";
-
-                if (folder != null)
-                {
-                    ChosenFolderPath = folder.Path;
-                    this.NoPathMessage.Visibility = Visibility.Collapsed;
-                    if (!disableGenButton) this.GenerateButton.IsEnabled = true;
-                    enablePath = true;
-                }
-
-                // re-enable the button
-                button.IsEnabled = true;
-            }
-        }
-
-        private async void GenerateLane()
-        {
-            LaneCalculatorService _laneCalculatorService = new();
-            ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
-
-            LaneGeneratorService _laneGeneratorService = new();
-            LaneGenerationSettings _laneGenerationSettings = new(
-                BaseAr,
-                TargetAr,
-                (int)SelectedHeight,
-                (int)SelectedWidth,
-                ChosenColor,
-                PickedFolderTextBlock.Text,
-                laneHeight,
-                GradientCb,
-                GradientIntensity,
-                AccNotchCb,
-                NotchHeight,
-                NotchWidth,
-                NotchXOffset,
-                NotchYOffset
-                );
-            Bitmap result = _laneGeneratorService.Generate(_laneGenerationSettings);
-
-            try
-            {
-                System.Diagnostics.Debug.WriteLine(Path.GetFullPath(PickedFolderTextBlock.Text));
-                if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"))
-                {
-                    if (!File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
-                    {
-                        File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png")); //Save old scorebar as scorebar-bg.old
+                        lanePage.dispatcherQueue.TryEnqueue(() =>
+                        {
+                            lanePage.ShowNotification("Folder path is empty.", InfoBarSeverity.Error);
+                        });
                     }
                 }
-                result.Save(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png", ImageFormat.Png);
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(ex);
-            }
-            finally
-            {
-                ShowNotification("The lane measures: " + laneHeight + "px", InfoBarSeverity.Success);
-            }
-        }
-
-        private async void GenerateButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button button)
-            {
-                // disable the button to avoid double-clicking
-                button.IsEnabled = false;
-
-                GenerateLane();
-                
-                // re-enable the button
-                button.IsEnabled = true;
-            }
-        }
-
-        public string HandleButtonClick()
-        {
-            LaneCalculatorService _laneCalculatorService = new();
-            ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
-
-            return laneHeight.ToString();
-        }
-
-        // --- Helper Method for INotifyPropertyChanged (Cleaner code) ---
-        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-            field = value;
-            OnPropertyChanged(propertyName);
-            return true;
-        }
-
-        // --- INotifyPropertyChanged Implementation ---
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private void GradientCheckbox_Checked(object sender, RoutedEventArgs e)
-        {
-            CheckBox cb = sender as CheckBox;
-            if (cb.Name == "GradientCheckbox") GradientCb = true;
-            this.GradientPanel.Visibility = Visibility.Visible;
-            this.GradientPanel.Opacity = 1;
-            //System.Diagnostics.Debug.WriteLine(GradientOptions.ToString());
-        }
-
-        private void GradientCheckbox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            CheckBox cb = sender as CheckBox;
-            if (cb.Name == "GradientCheckbox") GradientCb = false;
-            this.GradientPanel.Visibility = Visibility.Collapsed;
-            this.GradientPanel.Opacity = 0;
-        }
-
-        private void AccNotchCheckbox_Checked(object sender, RoutedEventArgs e)
-        {
-            CheckBox cb = sender as CheckBox;
-            if (cb.Name == "AccNotchCheckbox") AccNotchCb = true;
-            this.NotchPanel.Visibility = Visibility.Visible;
-            this.NotchPanel.Opacity = 1;
-        }
-
-        private void AccNotchCheckbox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            CheckBox cb = sender as CheckBox;
-            if (cb.Name == "AccNotchCheckbox") AccNotchCb = false;
-            this.NotchPanel.Visibility = Visibility.Collapsed;
-            this.NotchPanel.Opacity = 0;
-        }
-
-        private void RevertButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
-            {
-                try 
-                {
-                    File.Delete((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
-                    File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(ex);
-                }
-                finally
-                {
-                    ShowNotification("Lane reverted", InfoBarSeverity.Informational);
-                }            
-            }   
-        }
-
-        private void ToggleButton_Checked(object sender, RoutedEventArgs e)
-        {
-            autoMode = true;
-            
-            _sreader = StructuredOsuMemoryReader.GetInstance(new("osu!"));
-            dispatcherQueue.TryEnqueue(() => { 
-                BaseArSlider.IsEnabled = false; 
-            });
-            _cts = new CancellationTokenSource();
-            _loopForArTask = Task.Run(loopForAr, _cts.Token);
-        }
-
-        private async void ToggleButton_Unchecked(object sender, RoutedEventArgs e)
-        {
-            _cts.Cancel();
-            try
-            {
-               await _loopForArTask;
-            } catch (ObjectDisposedException ex)
-            {
-                System.Diagnostics.Debug.WriteLine(ex);
-            } finally 
-            {
-                _cts.Dispose();
-                autoMode = false;
-                dispatcherQueue.TryEnqueue(() => { BaseArSlider.IsEnabled = true; });         
-            }
-        }      
-    }
-
-    public class ThumbDouble : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            return string.Format("{0:N1}", value);
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, string language)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class UserSettings
-    {
-        public string ChosenFolderPath { get; set; } = String.Empty;
-        public double SelectedHeight { get; set; }
-        public double SelectedWidth { get; set; }
-        public double TargetAr { get; set; }
-        public bool AccNotchCb { get; set; }
-        public int NotchHeight { get; set; }
-        public int NotchWidth { get; set; }
-        public int NotchXOffset { get; set; }
-        public int NotchYOffset { get; set; }
-        public bool GradientCb { get; set; }
-        public string GradientIntensity { get; set; } = String.Empty;
-
-        public UserSettings(string chosenFolderPath, double selectedHeight, double selectedWidth, double targetAr, bool accNotchCb, int notchHeight, int notchWidth, int notchXOffset, int notchYOffset, bool gradientCb, string gradientIntensity)
-        {
-            ChosenFolderPath = chosenFolderPath;
-            SelectedHeight = selectedHeight;
-            SelectedWidth = selectedWidth;
-            TargetAr = targetAr;
-            AccNotchCb = accNotchCb;
-            NotchHeight = notchHeight;
-            NotchWidth = notchWidth;
-            NotchXOffset = notchXOffset;
-            NotchYOffset = notchYOffset;
-            GradientCb = gradientCb;
-            GradientIntensity = gradientIntensity;
         }
     }
 }
