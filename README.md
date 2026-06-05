@@ -1,1 +1,1 @@
-This will be my first and last WinUI 3 project.
+This tool's goal is to help players improve their reading on lower approach rate difficulties. WIP
