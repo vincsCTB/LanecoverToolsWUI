@@ -1,3 +1,5 @@
+using LanecoverToolsWUI.Services;
+using Microsoft.Graphics.Canvas;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -16,7 +18,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
-using Microsoft.Graphics.Canvas;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -33,13 +34,13 @@ namespace LanecoverToolsWUI
             "-50%", "-40%", "-30%", "-20%", "-10%", "0%", "+10%", "+20%", "+30%", "+40%", "+50%"
         };
 
-        private string _selectedPercentageText = "0%";
-        public string SelectedPercentageText
+        private string _selectedPercentage = "0%";
+        public string SelectedPercentage
         {
-            get => _selectedPercentageText;
+            get => _selectedPercentage;
             set
             {
-                if (SetProperty(ref _selectedPercentageText, value))
+                if (SetProperty(ref _selectedPercentage, value))
                 {
                     // Clean format entries typed manually by users (e.g., " 25 " -> "+25%")
                     string clean = value.Replace("%", "").Trim();
@@ -67,9 +68,10 @@ namespace LanecoverToolsWUI
             get => _resizeOverlays;
             set => SetProperty(ref _resizeOverlays, value);
         }
-        public bool disableResizeButton = true;
+        public bool disableResizeButton { get; set; } = false;
         public string ChosenFolderPath { get; set; } = string.Empty;
         public ObservableCollection<InfoBar> Notifications { get; } = new();
+        public UserSettings Settings => UserSettingsService.Current;
 
         // Tracker lists for your discovered target elements
         private List<string> _foundBaseFruits = new();
@@ -86,6 +88,39 @@ namespace LanecoverToolsWUI
             PercentageSelector.IsEditable = true;
             ResizePanel.DataContext = this;
             NotificationItemsControl.ItemsSource = Notifications;
+
+            this.Loaded += ResizerPage_Loaded;
+        }
+
+        private void ResizerPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(Settings.SelectedPercentage))
+            {
+                SelectedPercentage = Settings.SelectedPercentage;
+            }
+            // 1. Pull the saved directory string from your JSON config model wrapper
+            string savedPath = Settings?.ChosenFolderPath;
+
+            if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath))
+            {
+                // 2. Hydrate your local runtime path property
+                ChosenFolderPath = savedPath;
+                PickedFolderTextBlock.Text = savedPath;
+
+                // 3. Collapse warning panels and uncover execution actions
+                this.NoPathMessage.Visibility = Visibility.Collapsed;
+                if (!disableResizeButton) this.ResizeButton.IsEnabled = true;
+                enablePath = true;
+
+                // 4. Fire asset indexing sweep to discover which target files exist
+                VerifyFruitAssets(savedPath);
+            }
+            else
+            {
+                // Fallback baseline layout rules if configuration values resolve empty
+                PickedFolderTextBlock.Text = "No folder selected.";
+                enablePath = false;
+            }
         }
 
         private async void PickFolderButton_Click(object sender, RoutedEventArgs e)
@@ -113,6 +148,8 @@ namespace LanecoverToolsWUI
                 if (folder != null)
                 {
                     ChosenFolderPath = folder.Path;
+                    Settings.ChosenFolderPath = folder.Path;
+
                     this.NoPathMessage.Visibility = Visibility.Collapsed;
                     if (!disableResizeButton) this.ResizeButton.IsEnabled = true;
                     enablePath = true;
@@ -137,7 +174,7 @@ namespace LanecoverToolsWUI
                 filesToProcess.AddRange(_foundBaseFruits);
 
                 // Only include overlay elements if the checkbox condition evaluation returns true
-                if (ResizeOverlays)
+                if (Settings.ResizeOverlaysCb)
                 {
                     filesToProcess.AddRange(_foundOverlayFruits);
                 }
@@ -152,7 +189,7 @@ namespace LanecoverToolsWUI
                 int backupCount = 0;
                 foreach (string fileName in filesToProcess)
                 {
-                    string originalFilePath = Path.Combine(ChosenFolderPath, fileName);
+                    string originalFilePath = Path.Combine(Settings.ChosenFolderPath, fileName);
                     string backupFilePath = originalFilePath + ".old";
 
                     if (!File.Exists(backupFilePath))

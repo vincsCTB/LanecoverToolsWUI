@@ -45,8 +45,7 @@
                             <Button
                                 x:Name="RevertButton"
                                 Click="RevertButton_Click"
-                                Content="Revert to old Scorebar"
-                                IsEnabled="{x:Bind enablePath, Mode=OneWay}" />
+                                Content="Revert to old Scorebar" />
                         </StackPanel>
                     </Grid>
                 </Border>

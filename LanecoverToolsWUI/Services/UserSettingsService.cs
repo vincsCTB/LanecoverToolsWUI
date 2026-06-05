@@ -97,6 +97,8 @@ namespace LanecoverToolsWUI.Services
         public Windows.UI.Color ChosenColor { get; set; }
         public List<int> GenerationHotkey { get; set; } 
         public List<int> RevertHotkey { get; set; } 
+        public string SelectedPercentage { get; set; }
+        public bool ResizeOverlaysCb { get; set; }
 
         public UserSettings() { }
 
@@ -114,7 +116,9 @@ namespace LanecoverToolsWUI.Services
             string gradientIntensity,
             Windows.UI.Color chosenColor,
             List<int> generationHotkey,
-            List<int> revertHotkey)
+            List<int> revertHotkey,
+            string selectedPercentage,
+            bool resizeOverlaysCb)
         {
             ChosenFolderPath = chosenFolderPath;
             SelectedHeight = selectedHeight;
@@ -130,6 +134,8 @@ namespace LanecoverToolsWUI.Services
             GenerationHotkey = generationHotkey;
             RevertHotkey = revertHotkey;
             ChosenColor = chosenColor;
+            SelectedPercentage = selectedPercentage;
+            ResizeOverlaysCb = resizeOverlaysCb;
         }
     }
 }

@@ -41,8 +41,7 @@
                             <Button
                                 x:Name="RevertButton"
                                 Click="RevertButton_Click"
-                                Content="Revert to old Fruits"
-                                IsEnabled="{x:Bind enablePath, Mode=OneWay}" />
+                                Content="Revert to old Fruits" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -62,7 +61,7 @@
                                 x:Name="PercentageSelector"
                                 Width="200"
                                 ItemsSource="{x:Bind ResizePercentages}"
-                                SelectedItem="{x:Bind SelectedPercentageText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                SelectedItem="{x:Bind Settings.SelectedPercentage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 
                         <MenuFlyoutSeparator Margin="0,10,0,10" />
@@ -71,7 +70,7 @@
                             <CheckBox
                                 VerticalContentAlignment="Center"
                                 Content="Resize Overlays"
-                                IsChecked="{x:Bind ResizeOverlays, Mode=TwoWay}" />
+                                IsChecked="{x:Bind Settings.ResizeOverlaysCb, Mode=TwoWay}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -84,7 +83,7 @@
                     HorizontalAlignment="Center"
                     Click="ResizeButton_Click"
                     Content="Resize Image"
-                    IsEnabled="{x:Bind enablePath}">
+                    IsEnabled="{x:Bind enablePath, Mode=OneWay}">
                     <Button.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />

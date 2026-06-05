@@ -148,6 +148,34 @@ namespace LanecoverToolsWUI
             ChosenColor = Microsoft.UI.Colors.Black;
 
             NotificationItemsControl.ItemsSource = Notifications;
+
+            this.Loaded += LanePage_Loaded;
+        }
+
+        private void LanePage_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 1. Pull the saved directory string from your JSON config model wrapper
+            string savedPath = Settings?.ChosenFolderPath;
+
+            Debug.WriteLine(Settings.ChosenFolderPath);
+
+            if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath))
+            {
+                // 2. Hydrate your local runtime path property
+                ChosenFolderPath = savedPath;
+                PickedFolderTextBlock.Text = savedPath;
+
+                // 3. Collapse warning panels and uncover execution actions
+                this.NoPathMessage.Visibility = Visibility.Collapsed;
+                if (!disableGenButton) this.GenerateButton.IsEnabled = true;
+                enablePath = true;
+            }
+            else
+            {
+                // Fallback baseline layout rules if configuration values resolve empty
+                PickedFolderTextBlock.Text = "No folder selected.";
+                enablePath = false;
+            }
         }
 
         private async void loopForAr()
@@ -307,6 +335,7 @@ namespace LanecoverToolsWUI
                 if (folder != null)
                 {
                     ChosenFolderPath = folder.Path;
+                    Settings.ChosenFolderPath = folder.Path;
                     this.NoPathMessage.Visibility = Visibility.Collapsed;
                     if (!disableGenButton) this.GenerateButton.IsEnabled = true;
                     enablePath = true;
@@ -323,24 +352,25 @@ namespace LanecoverToolsWUI
         public async void GenerateLane()
         {
             LaneCalculatorService _laneCalculatorService = new();
-            ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, TargetAr, SelectedHeight);
+            Debug.WriteLine(Settings.TargetAr);
+            ushort laneHeight = _laneCalculatorService.CalculateLaneHeight(BaseAr, Math.Round(Settings.TargetAr, 2), Settings.SelectedHeight);
 
             LaneGeneratorService _laneGeneratorService = new();
             LaneGenerationSettings _laneGenerationSettings = new(
                 BaseAr,
-                TargetAr,
-                (int)SelectedHeight,
-                (int)SelectedWidth,
-                ChosenColor,
+                Settings.TargetAr,
+                (int)Settings.SelectedHeight,
+                (int)Settings.SelectedWidth,
+                Settings.ChosenColor,
                 PickedFolderTextBlock.Text,
                 laneHeight,
-                GradientCb,
-                GradientIntensity,
-                AccNotchCb,
-                NotchHeight,
-                NotchWidth,
-                NotchXOffset,
-                NotchYOffset
+                Settings.GradientCb,
+                Settings.GradientIntensity,
+                Settings.AccNotchCb,
+                Settings.NotchHeight,
+                Settings.NotchWidth,
+                Settings.NotchXOffset,
+                Settings.NotchYOffset
                 );
             Bitmap result = _laneGeneratorService.Generate(_laneGenerationSettings);
 
