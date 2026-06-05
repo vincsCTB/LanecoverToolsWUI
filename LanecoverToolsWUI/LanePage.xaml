@@ -278,6 +278,24 @@
                     Click="GenerateButton_Click"
                     Content="Generate"
                     IsEnabled="{x:Bind enablePath}">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonBackground" Color="#9D4EDD" />
+                        <SolidColorBrush x:Key="ButtonForeground" Color="#FFFFFF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#B57CFF" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#7B2CBF" />
+                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#9D4EDD" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#5A189A" />
+                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#E0B0FF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#5A189A" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#3D3D3D" />
+                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#6E6E6E" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="Transparent" />
+                    </Button.Resources>
+
                     <Button.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />
@@ -290,7 +308,7 @@
                     HorizontalAlignment="Center"
                     FontSize="12"
                     FontStyle="Italic"
-                    Text="You can press CTRL + SHIFT + X to generate while in Auto mode">
+                    Text="Check the settings tab to change keybinds used in auto mode!">
                     <TextBlock.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />

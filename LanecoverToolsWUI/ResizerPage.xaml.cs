@@ -1,5 +1,6 @@
 using LanecoverToolsWUI.Services;
 using Microsoft.Graphics.Canvas;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -24,15 +25,42 @@ using Windows.Foundation.Collections;
 
 namespace LanecoverToolsWUI
 {
-    /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
-    /// </summary>
-    public sealed partial class ResizerPage : Page
+    public sealed partial class ResizerPage : Page, INotifyPropertyChanged
     {
-        public ObservableCollection<string> ResizePercentages { get; set; } = new()
+        // Lists holding static choices
+        public ObservableCollection<string> UnitModes { get; set; } = new() { "%", "px" };
+        private readonly List<string> _percentageChoices = new() { "-50%", "-40%", "-30%", "-20%", "-10%", "+10%", "+20%", "+30%", "+40%", "+50%" };
+        private readonly List<string> _pixelChoices = new() { "128px", "144px", "155px", "200px", "224px", "240px" };
+
+        // The active items bound to the resize value picker dropdown
+        private ObservableCollection<string> _dynamicResizeOptions = new();
+        public DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
+        public ObservableCollection<string> DynamicResizeOptions
         {
-            "-50%", "-40%", "-30%", "-20%", "-10%", "0%", "+10%", "+20%", "+30%", "+40%", "+50%"
-        };
+            get => _dynamicResizeOptions;
+            set => SetProperty(ref _dynamicResizeOptions, value);
+        }
+
+        private string _resizeUnitHeader = "Resize Scale Percentage";
+        public string ResizeUnitHeader
+        {
+            get => _resizeUnitHeader;
+            set => SetProperty(ref _resizeUnitHeader, value);
+        }
+
+        private string _selectedUnitMode = "%";
+        public string SelectedUnitMode
+        {
+            get => _selectedUnitMode;
+            set
+            {
+                if (SetProperty(ref _selectedUnitMode, value))
+                {
+                    UpdateUnitLayout(value);
+                }
+            }
+        }
 
         private string _selectedPercentage = "0%";
         public string SelectedPercentage
@@ -42,18 +70,13 @@ namespace LanecoverToolsWUI
             {
                 if (SetProperty(ref _selectedPercentage, value))
                 {
-                    // Clean format entries typed manually by users (e.g., " 25 " -> "+25%")
-                    string clean = value.Replace("%", "").Trim();
-                    if (double.TryParse(clean, out double parsedValue))
-                    {
-                        SelectedPercentageValue = parsedValue / 100.0;
-                    }
+                    ParseSelectedValue(value);
                 }
             }
         }
 
-        // Exposed numerical variable for business operations algorithm calculations
-        public double SelectedPercentageValue { get; private set; } = 0.0;
+        // Numerical backing metrics processed by the hardware-accelerated loops
+        public double ExtractedNumericValue { get; private set; } = 0.0;
 
         private bool _enablePath = false;
         public bool enablePath
@@ -62,62 +85,83 @@ namespace LanecoverToolsWUI
             set => SetProperty(ref _enablePath, value);
         }
 
-        private bool _resizeOverlays = false;
-        public bool ResizeOverlays
-        {
-            get => _resizeOverlays;
-            set => SetProperty(ref _resizeOverlays, value);
-        }
         public bool disableResizeButton { get; set; } = false;
         public string ChosenFolderPath { get; set; } = string.Empty;
         public ObservableCollection<InfoBar> Notifications { get; } = new();
         public UserSettings Settings => UserSettingsService.Current;
 
-        // Tracker lists for your discovered target elements
         private List<string> _foundBaseFruits = new();
         private List<string> _foundOverlayFruits = new();
-
         private readonly string[] _targetBaseFiles = { "fruit-pear.png", "fruit-grapes.png", "fruit-apple.png", "fruit-orange.png" };
         private readonly string[] _targetOverlayFiles = { "fruit-pear-overlay.png", "fruit-grapes-overlay.png", "fruit-apple-overlay.png", "fruit-orange-overlay.png" };
 
         public ResizerPage()
         {
             this.InitializeComponent();
-
-            // Allow user to input custom entries exactly like resolution inputs
             PercentageSelector.IsEditable = true;
             ResizePanel.DataContext = this;
             NotificationItemsControl.ItemsSource = Notifications;
 
+            // Initialize to initial baseline state selection configuration rules
+            UpdateUnitLayout(_selectedUnitMode);
+
             this.Loaded += ResizerPage_Loaded;
         }
 
-        private void ResizerPage_Loaded(object sender, RoutedEventArgs e)
+        private void UpdateUnitLayout(string currentUnitMode)
+        {
+            DynamicResizeOptions.Clear();
+            if (currentUnitMode.StartsWith("%"))
+            {
+                ResizeUnitHeader = "Resize Scale Percentage Modifier";
+                _percentageChoices.ForEach(x => DynamicResizeOptions.Add(x));
+                SelectedPercentage = "10%";
+            }
+            else
+            {
+                ResizeUnitHeader = "Target Width Frame Size (px)";
+                _pixelChoices.ForEach(x => DynamicResizeOptions.Add(x));
+                SelectedPercentage = "128px";
+            }
+        }
+
+        private void ParseSelectedValue(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return;
+
+            // Strip suffix modifiers cleanly 
+            string clean = input.Replace("%", "").Replace("px", "").Replace("+", "").Trim();
+
+            if (double.TryParse(clean, out double parsedValue))
+            {
+                ExtractedNumericValue = parsedValue;
+            }
+        }
+
+        private async void ResizerPage_Loaded(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(Settings.SelectedPercentage))
             {
+                // Fallback validation layout configurations
+                if (Settings.SelectedPercentage.Contains("px"))
+                {
+                    SelectedUnitMode = "px";
+                }
                 SelectedPercentage = Settings.SelectedPercentage;
             }
-            // 1. Pull the saved directory string from your JSON config model wrapper
-            string savedPath = Settings?.ChosenFolderPath;
 
+            string savedPath = Settings?.ChosenFolderPath;
             if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath))
             {
-                // 2. Hydrate your local runtime path property
                 ChosenFolderPath = savedPath;
                 PickedFolderTextBlock.Text = savedPath;
-
-                // 3. Collapse warning panels and uncover execution actions
                 this.NoPathMessage.Visibility = Visibility.Collapsed;
                 if (!disableResizeButton) this.ResizeButton.IsEnabled = true;
                 enablePath = true;
-
-                // 4. Fire asset indexing sweep to discover which target files exist
                 VerifyFruitAssets(savedPath);
             }
             else
             {
-                // Fallback baseline layout rules if configuration values resolve empty
                 PickedFolderTextBlock.Text = "No folder selected.";
                 enablePath = false;
             }
@@ -127,36 +171,26 @@ namespace LanecoverToolsWUI
         {
             if (sender is Button button)
             {
-                // disable the button to avoid double-clicking
                 button.IsEnabled = false;
-
-                // Clear previous returned folder name
                 PickedFolderTextBlock.Text = "";
 
                 var picker = new FolderPicker(button.XamlRoot.ContentIslandEnvironment.AppWindowId);
-
                 picker.CommitButtonText = "Pick Folder";
                 picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
                 picker.ViewMode = PickerViewMode.List;
 
-                // Show the picker dialog window
                 var folder = await picker.PickSingleFolderAsync();
-                PickedFolderTextBlock.Text = folder != null
-                    ? folder.Path
-                    : "No folder selected.";
+                PickedFolderTextBlock.Text = folder != null ? folder.Path : "No folder selected.";
 
                 if (folder != null)
                 {
                     ChosenFolderPath = folder.Path;
                     Settings.ChosenFolderPath = folder.Path;
-
                     this.NoPathMessage.Visibility = Visibility.Collapsed;
                     if (!disableResizeButton) this.ResizeButton.IsEnabled = true;
                     enablePath = true;
                     VerifyFruitAssets(folder.Path);
                 }
-
-                // re-enable the button
                 button.IsEnabled = true;
             }
         }
@@ -169,11 +203,9 @@ namespace LanecoverToolsWUI
             {
                 VerifyFruitAssets(ChosenFolderPath);
 
-                // --- SELECTIVE FILE TARGETING LOGIC ---
                 List<string> filesToProcess = new();
                 filesToProcess.AddRange(_foundBaseFruits);
 
-                // Only include overlay elements if the checkbox condition evaluation returns true
                 if (Settings.ResizeOverlaysCb)
                 {
                     filesToProcess.AddRange(_foundOverlayFruits);
@@ -185,11 +217,11 @@ namespace LanecoverToolsWUI
                     return;
                 }
 
-                // --- BACKUP PIPELINE LOGIC BLOCK ---
+                // Create backups
                 int backupCount = 0;
                 foreach (string fileName in filesToProcess)
                 {
-                    string originalFilePath = Path.Combine(Settings.ChosenFolderPath, fileName);
+                    string originalFilePath = Path.Combine(ChosenFolderPath, fileName);
                     string backupFilePath = originalFilePath + ".old";
 
                     if (!File.Exists(backupFilePath))
@@ -199,30 +231,37 @@ namespace LanecoverToolsWUI
                     }
                 }
 
-                // --- HARDWARE-ACCELERATED RESIZING EXECUTION ---
-                // Scale target calculation: e.g., 1.0 + (+0.20) = 1.20 scale factor factor multiplier
-                float scaleFactor = (float)(1.0 + SelectedPercentageValue);
-
-                // Edge-case safeguard logic rule
-                if (scaleFactor <= 0.01f)
-                {
-                    ShowNotification("Resize error: Scaling modifier percentage cannot result in an image size of 0 or smaller.", InfoBarSeverity.Error);
-                    return;
-                }
-
+                bool isPercentageMode = SelectedUnitMode.StartsWith("%");
                 CanvasDevice device = CanvasDevice.GetSharedDevice();
 
                 foreach (string fileName in filesToProcess)
                 {
-                    // Always read directly from the safe '.old' pristine backup file to prevent compounding artifacts
                     string backupFilePath = Path.Combine(ChosenFolderPath, fileName + ".old");
                     string outputFilePath = Path.Combine(ChosenFolderPath, fileName);
 
                     using (CanvasBitmap bitmap = await CanvasBitmap.LoadAsync(device, backupFilePath))
                     {
-                        // Calculate explicit bounds target values
-                        int newWidth = (int)Math.Max(1, Math.Round(bitmap.Size.Width * scaleFactor));
-                        int newHeight = (int)Math.Max(1, Math.Round(bitmap.Size.Height * scaleFactor));
+                        int newWidth = 1;
+                        int newHeight = 1;
+
+                        if (isPercentageMode)
+                        {
+                            // Scale target calculation: e.g. 1.0 + (+20 / 100) = 1.20 factor
+                            float scaleFactor = (float)(1.0 + (ExtractedNumericValue / 100.0));
+                            if (scaleFactor <= 0.01f) scaleFactor = 0.01f;
+
+                            newWidth = (int)Math.Max(1, Math.Round(bitmap.Size.Width * scaleFactor));
+                            newHeight = (int)Math.Max(1, Math.Round(bitmap.Size.Height * scaleFactor));
+                        }
+                        else
+                        {
+                            // Absolute pixel sizing operation (Scales height proportionally to match target layout Width value)
+                            int targetWidth = (int)Math.Max(1, ExtractedNumericValue);
+                            double aspectRatio = bitmap.Size.Height / bitmap.Size.Width;
+
+                            newWidth = targetWidth;
+                            newHeight = (int)Math.Max(1, Math.Round(targetWidth * aspectRatio));
+                        }
 
                         using (CanvasRenderTarget renderTarget = new CanvasRenderTarget(device, newWidth, newHeight, bitmap.Dpi))
                         {
@@ -231,14 +270,17 @@ namespace LanecoverToolsWUI
                                 ds.Clear(Microsoft.UI.Colors.Transparent);
                                 ds.DrawImage(bitmap, new Rect(0, 0, newWidth, newHeight), bitmap.Bounds, 1.0f, CanvasImageInterpolation.MultiSampleLinear);
                             }
-
                             await renderTarget.SaveAsync(outputFilePath, CanvasBitmapFileFormat.Png);
                         }
                     }
                 }
 
+                // Save setting choice state
+                Settings.SelectedPercentage = SelectedPercentage;
+
                 string backupNotice = backupCount > 0 ? $" Created {backupCount} pristine backups (.old)." : "";
-                ShowNotification($"Successfully resized {filesToProcess.Count} fruit assets down/up to {(scaleFactor * 100):0}%.{backupNotice}", InfoBarSeverity.Success);
+                string displayUnit = isPercentageMode ? $"{ExtractedNumericValue}%" : $"{ExtractedNumericValue}px wide";
+                ShowNotification($"Successfully resized {filesToProcess.Count} fruit assets down/up to target dimensions ({displayUnit}).{backupNotice}", InfoBarSeverity.Success);
             }
             catch (Exception ex)
             {
@@ -256,34 +298,26 @@ namespace LanecoverToolsWUI
 
             try
             {
-                // Define all valid tracking outputs to inspect for state rollback conditions
                 List<string> potentialFiles = new();
                 potentialFiles.AddRange(_targetBaseFiles);
                 potentialFiles.AddRange(_targetOverlayFiles);
 
                 int restoredCount = 0;
-
                 foreach (string fileName in potentialFiles)
                 {
                     string targetFilePath = Path.Combine(ChosenFolderPath, fileName);
                     string backupFilePath = targetFilePath + ".old";
 
-                    // If a backup exists, restore it over the modified one
                     if (File.Exists(backupFilePath))
                     {
-                        // Overwrite the modified file back to its pristine condition
                         File.Copy(backupFilePath, targetFilePath, overwrite: true);
-
-                        // Clean up the backup file safely to leave the folder pristine
                         File.Delete(backupFilePath);
-
                         restoredCount++;
                     }
                 }
 
                 if (restoredCount > 0)
                 {
-                    // Refresh tracking definitions states UI indicators
                     VerifyFruitAssets(ChosenFolderPath);
                     ShowNotification($"Successfully reverted {restoredCount} fruit assets back to their original states.", InfoBarSeverity.Success);
                 }
@@ -303,26 +337,16 @@ namespace LanecoverToolsWUI
             _foundBaseFruits.Clear();
             _foundOverlayFruits.Clear();
 
-            // Check for standard base variations
             foreach (var file in _targetBaseFiles)
             {
-                if (File.Exists(Path.Combine(folderPath, file)))
-                {
-                    _foundBaseFruits.Add(file);
-                }
+                if (File.Exists(Path.Combine(folderPath, file))) _foundBaseFruits.Add(file);
             }
-
-            // Check for matching contextual overlays
             foreach (var file in _targetOverlayFiles)
             {
-                if (File.Exists(Path.Combine(folderPath, file)))
-                {
-                    _foundOverlayFruits.Add(file);
-                }
+                if (File.Exists(Path.Combine(folderPath, file))) _foundOverlayFruits.Add(file);
             }
 
             int totalDiscovered = _foundBaseFruits.Count + _foundOverlayFruits.Count;
-
             if (totalDiscovered > 0)
             {
                 AssetStatusTextBlock.Text = $"Discovered {totalDiscovered} fruit assets ({_foundBaseFruits.Count}/4 fruits, {_foundOverlayFruits.Count}/4 overlays found).";
@@ -332,27 +356,35 @@ namespace LanecoverToolsWUI
             {
                 AssetStatusTextBlock.Text = "Warning: No target fruit files or overlays found in this directory.";
                 ShowNotification("No matching fruit elements discovered in the selected directory.", InfoBarSeverity.Warning);
-
-                // Keep button enabled so they can proceed anyway, or set to false to lock execution
                 enablePath = true;
             }
         }
 
-        private void ShowNotification(string message, InfoBarSeverity severity)
+        public void ShowNotification(string message, InfoBarSeverity severity, string? title = null, int autoCloseDurationMs = 5000)
         {
             var infoBar = new InfoBar
             {
                 Message = message,
                 Severity = severity,
+                Title = title,
                 IsOpen = true,
                 IsClosable = true,
             };
 
             Notifications.Add(infoBar);
-            infoBar.Closed += (s, e) => Notifications.Remove(infoBar);
+
+            if (autoCloseDurationMs > 0)
+            {
+                var timer = new System.Threading.Timer(_ =>
+                {
+                    dispatcherQueue.TryEnqueue(() =>
+                    {
+                        Notifications.Remove(infoBar);
+                    });
+                }, null, autoCloseDurationMs, System.Threading.Timeout.Infinite);
+            }
         }
 
-        // --- INotifyPropertyChanged standard structure boilerplate updates ---
         public event PropertyChangedEventHandler PropertyChanged;
         private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
@@ -363,4 +395,3 @@ namespace LanecoverToolsWUI
         }
     }
 }
-

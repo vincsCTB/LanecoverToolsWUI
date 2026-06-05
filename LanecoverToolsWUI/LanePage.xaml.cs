@@ -182,6 +182,8 @@ namespace LanecoverToolsWUI
         {
             var baseAddresses = new OsuBaseAddresses();
             int initDiscard = 0;
+            // Track whether the "not found" notification has already been triggered
+            bool isNotFoundNotificationShown = false;
 
             while (true)
             {
@@ -190,10 +192,16 @@ namespace LanecoverToolsWUI
 
                 if (!_sreader.CanRead && initDiscard > 5)
                 {
-                    dispatcherQueue.TryEnqueue(() =>
+                    // Only show the notification if we haven't already shown it
+                    if (!isNotFoundNotificationShown)
                     {
-                        ShowNotification("osu! process not found", InfoBarSeverity.Warning);
-                    });
+                        dispatcherQueue.TryEnqueue(() =>
+                        {
+                            ShowNotification("osu! process not found", InfoBarSeverity.Warning, null, 0);
+                        });
+                        isNotFoundNotificationShown = true; // Block future spams
+                    }
+
                     await Task.Delay(_readDelay);
                     continue;
                 }
@@ -202,6 +210,10 @@ namespace LanecoverToolsWUI
                 {
                     if (_sreader.CanRead)
                     {
+                        // Reset the flag here so if the process closes *again* later, 
+                        // the user will get a fresh notification.
+                        isNotFoundNotificationShown = false;
+
                         _sreader.TryRead(baseAddresses.Beatmap);
 
                         dispatcherQueue.TryEnqueue(() =>
@@ -252,15 +264,13 @@ namespace LanecoverToolsWUI
 
             Notifications.Add(infoBar);
 
-            infoBar.Closed += (s, e) => Notifications.Remove(infoBar);
-
             if (autoCloseDurationMs > 0)
             {
                 var timer = new System.Threading.Timer(_ =>
                 {
                     dispatcherQueue.TryEnqueue(() =>
                     {
-                        infoBar.IsOpen = false;
+                        Notifications.Remove(infoBar);
                     });
                 }, null, autoCloseDurationMs, System.Threading.Timeout.Infinite);
             }

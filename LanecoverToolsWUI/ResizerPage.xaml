@@ -35,7 +35,6 @@
                                 Click="PickFolderButton_Click"
                                 Content="Pick a folder" />
                             <TextBlock x:Name="PickedFolderTextBlock" Text="No folder picked" />
-                            <TextBlock x:Name="AssetStatusTextBlock" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right">
                             <Button
@@ -46,6 +45,13 @@
                     </Grid>
                 </Border>
 
+                <StackPanel Margin="10,0,0,10" Spacing="5">
+                    <TextBlock
+                        x:Name="AssetStatusTextBlock"
+                        FontSize="12"
+                        FontStyle="Italic" />
+                </StackPanel>
+
                 <Border
                     x:Name="ResizeSettings"
                     Margin="0,0,0,10"
@@ -55,14 +61,38 @@
                     BorderThickness="1"
                     CornerRadius="8">
                     <StackPanel>
-                        <StackPanel x:Name="ResizePanel" Spacing="5">
-                            <TextBlock Text="Resize Scale Percentage" />
+                        <Grid
+                            x:Name="ResizePanel"
+                            ColumnDefinitions="7*, 3*"
+                            ColumnSpacing="12"
+                            RowDefinitions="Auto, Auto"
+                            RowSpacing="5">
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                VerticalAlignment="Bottom"
+                                Text="{x:Bind ResizeUnitHeader, Mode=OneWay}" />
                             <ComboBox
                                 x:Name="PercentageSelector"
-                                Width="200"
-                                ItemsSource="{x:Bind ResizePercentages}"
-                                SelectedItem="{x:Bind Settings.SelectedPercentage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                HorizontalAlignment="Stretch"
+                                ItemsSource="{x:Bind DynamicResizeOptions, Mode=OneWay}"
+                                SelectedItem="{x:Bind SelectedPercentage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                VerticalAlignment="Bottom"
+                                Text="Unit Mode" />
+                            <ComboBox
+                                x:Name="UnitModeSelector"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Width="90"
+                                ItemsSource="{x:Bind UnitModes}"
+                                SelectedItem="{x:Bind SelectedUnitMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
 
                         <MenuFlyoutSeparator Margin="0,10,0,10" />
 
@@ -83,7 +113,26 @@
                     HorizontalAlignment="Center"
                     Click="ResizeButton_Click"
                     Content="Resize Image"
+                    FontWeight="SemiBold"
                     IsEnabled="{x:Bind enablePath, Mode=OneWay}">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonBackground" Color="#9D4EDD" />
+                        <SolidColorBrush x:Key="ButtonForeground" Color="#FFFFFF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#B57CFF" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#7B2CBF" />
+                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FFFFFF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#9D4EDD" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#5A189A" />
+                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#E0B0FF" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#5A189A" />
+
+                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#3D3D3D" />
+                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#6E6E6E" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="Transparent" />
+                    </Button.Resources>
+
                     <Button.Transitions>
                         <TransitionCollection>
                             <RepositionThemeTransition />
