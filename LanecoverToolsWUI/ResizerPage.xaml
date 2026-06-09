@@ -105,6 +105,48 @@
                     </StackPanel>
                 </Border>
 
+                <Border
+                    x:Name="OffsetSettings"
+                    Margin="0,0,0,10"
+                    Padding="16"
+                    Background="#2D2D2D"
+                    BorderBrush="#3F3F3F"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel Spacing="10">
+                        <TextBlock
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Foreground="#E0E0E0"
+                            Text="Fruits Offset" />
+
+                        <TextBlock
+                            Margin="0,0,0,4"
+                            FontSize="12"
+                            Foreground="#A0A0A0"
+                            Text="Positive shifts the image down/right (adds top/left empty space). Negative expands the canvas out to the bottom/right."
+                            TextWrapping="Wrap" />
+
+                        <Grid ColumnDefinitions="*, *" ColumnSpacing="16">
+                            <NumberBox
+                                Grid.Column="0"
+                                Header="Offset X Axis (px)"
+                                LargeChange="10"
+                                SmallChange="1"
+                                SpinButtonPlacementMode="Compact"
+                                Value="{x:Bind OffsetX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <NumberBox
+                                Grid.Column="1"
+                                Header="Offset Y Axis (px)"
+                                LargeChange="10"
+                                SmallChange="1"
+                                SpinButtonPlacementMode="Compact"
+                                Value="{x:Bind OffsetY, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <Button
                     x:Name="ResizeButton"
                     Width="400"

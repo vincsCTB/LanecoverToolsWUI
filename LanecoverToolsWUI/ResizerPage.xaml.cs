@@ -36,6 +36,20 @@ namespace LanecoverToolsWUI
         private ObservableCollection<string> _dynamicResizeOptions = new();
         public DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
+        private int _offsetX = 0;
+        public int OffsetX
+        {
+            get => _offsetX;
+            set => SetProperty(ref _offsetX, value);
+        }
+
+        private int _offsetY = 0;
+        public int OffsetY
+        {
+            get => _offsetY;
+            set => SetProperty(ref _offsetY, value);
+        }
+
         public ObservableCollection<string> DynamicResizeOptions
         {
             get => _dynamicResizeOptions;
@@ -241,34 +255,46 @@ namespace LanecoverToolsWUI
 
                     using (CanvasBitmap bitmap = await CanvasBitmap.LoadAsync(device, backupFilePath))
                     {
-                        int newWidth = 1;
-                        int newHeight = 1;
+                        int baseWidth = 1;
+                        int baseHeight = 1;
 
+                        // --- 1. Compute Base Sizing Core ---
                         if (isPercentageMode)
                         {
-                            // Scale target calculation: e.g. 1.0 + (+20 / 100) = 1.20 factor
                             float scaleFactor = (float)(1.0 + (ExtractedNumericValue / 100.0));
                             if (scaleFactor <= 0.01f) scaleFactor = 0.01f;
 
-                            newWidth = (int)Math.Max(1, Math.Round(bitmap.Size.Width * scaleFactor));
-                            newHeight = (int)Math.Max(1, Math.Round(bitmap.Size.Height * scaleFactor));
+                            baseWidth = (int)Math.Max(1, Math.Round(bitmap.Size.Width * scaleFactor));
+                            baseHeight = (int)Math.Max(1, Math.Round(bitmap.Size.Height * scaleFactor));
                         }
                         else
                         {
-                            // Absolute pixel sizing operation (Scales height proportionally to match target layout Width value)
                             int targetWidth = (int)Math.Max(1, ExtractedNumericValue);
                             double aspectRatio = bitmap.Size.Height / bitmap.Size.Width;
 
-                            newWidth = targetWidth;
-                            newHeight = (int)Math.Max(1, Math.Round(targetWidth * aspectRatio));
+                            baseWidth = targetWidth;
+                            baseHeight = (int)Math.Max(1, Math.Round(targetWidth * aspectRatio));
                         }
 
-                        using (CanvasRenderTarget renderTarget = new CanvasRenderTarget(device, newWidth, newHeight, bitmap.Dpi))
+                        // --- 2. Calculate New Bounds Accounting for Pos/Neg Offsets ---
+                        int finalCanvasWidth = baseWidth + Math.Abs(OffsetX);
+                        int finalCanvasHeight = baseHeight + Math.Abs(OffsetY);
+
+                        // Determine where to draw the image inside the new padded container
+                        // Positive offset -> shifts image down/right (creates padding top/left)
+                        // Negative offset -> holds image at 0,0 (creates padding bottom/right due to expanded canvas)
+                        float drawX = OffsetX > 0 ? OffsetX : 0;
+                        float drawY = OffsetY > 0 ? OffsetY : 0;
+
+                        using (CanvasRenderTarget renderTarget = new CanvasRenderTarget(device, finalCanvasWidth, finalCanvasHeight, bitmap.Dpi))
                         {
                             using (CanvasDrawingSession ds = renderTarget.CreateDrawingSession())
                             {
                                 ds.Clear(Microsoft.UI.Colors.Transparent);
-                                ds.DrawImage(bitmap, new Rect(0, 0, newWidth, newHeight), bitmap.Bounds, 1.0f, CanvasImageInterpolation.MultiSampleLinear);
+
+                                // Draw resized asset shifted dynamically onto the empty layout canvas
+                                Rect targetDestRect = new Rect(drawX, drawY, baseWidth, baseHeight);
+                                ds.DrawImage(bitmap, targetDestRect, bitmap.Bounds, 1.0f, CanvasImageInterpolation.MultiSampleLinear);
                             }
                             await renderTarget.SaveAsync(outputFilePath, CanvasBitmapFileFormat.Png);
                         }
@@ -280,7 +306,8 @@ namespace LanecoverToolsWUI
 
                 string backupNotice = backupCount > 0 ? $" Created {backupCount} pristine backups (.old)." : "";
                 string displayUnit = isPercentageMode ? $"{ExtractedNumericValue}%" : $"{ExtractedNumericValue}px wide";
-                ShowNotification($"Successfully resized {filesToProcess.Count} fruit assets down/up to target dimensions ({displayUnit}).{backupNotice}", InfoBarSeverity.Success);
+                string offsetNotice = $" [Offset X:{OffsetX}px, Y:{OffsetY}px]";
+                ShowNotification($"Successfully processed {filesToProcess.Count} fruit assets ({displayUnit}){offsetNotice}.{backupNotice}", InfoBarSeverity.Success);
             }
             catch (Exception ex)
             {

@@ -50,6 +50,13 @@
                     </Grid>
                 </Border>
 
+                <StackPanel Margin="10,0,0,10" Spacing="5">
+                    <TextBlock
+                        x:Name="AssetStatusTextBlock"
+                        FontSize="12"
+                        FontStyle="Italic" />
+                </StackPanel>
+
                 <Border
                     x:Name="ResSettings"
                     Grid.Row="1"

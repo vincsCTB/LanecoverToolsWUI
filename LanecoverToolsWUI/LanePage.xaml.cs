@@ -157,8 +157,6 @@ namespace LanecoverToolsWUI
             // 1. Pull the saved directory string from your JSON config model wrapper
             string savedPath = Settings?.ChosenFolderPath;
 
-            Debug.WriteLine(Settings.ChosenFolderPath);
-
             if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath))
             {
                 // 2. Hydrate your local runtime path property
@@ -169,6 +167,7 @@ namespace LanecoverToolsWUI
                 this.NoPathMessage.Visibility = Visibility.Collapsed;
                 if (!disableGenButton) this.GenerateButton.IsEnabled = true;
                 enablePath = true;
+                VerifyScorebarAsset(savedPath);
             }
             else
             {
@@ -479,21 +478,34 @@ namespace LanecoverToolsWUI
 
         public void RevertLane()
         {
-            if (File.Exists(Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"))
+            string targetPath = Path.GetFullPath(PickedFolderTextBlock.Text);
+            string backupFile = Path.Combine(targetPath, "scorebar-bg.old.png");
+            string activeFile = Path.Combine(targetPath, "scorebar-bg.png");
+
+            if (File.Exists(backupFile))
             {
                 try
                 {
-                    File.Delete((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
-                    File.Move((Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.old.png"), (Path.GetFullPath(PickedFolderTextBlock.Text) + @"\scorebar-bg.png"));
+                    if (File.Exists(activeFile))
+                    {
+                        File.Delete(activeFile);
+                    }
+                    File.Move(backupFile, activeFile);
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine(ex);
+                    ShowNotification("Failed to swap backup file due to a system error.", InfoBarSeverity.Error);
                 }
                 finally
                 {
-                    ShowNotification("Lane reverted", InfoBarSeverity.Informational);
+                    ShowNotification("Lane reverted successfully", InfoBarSeverity.Success);
                 }
+            }
+            else
+            {
+                // This is the missing validation notice flag block you wanted to bring over:
+                ShowNotification("No backup profile (.old) was found in this folder to revert back to.", InfoBarSeverity.Warning);
             }
         }
         private void RevertButton_Click(object sender, RoutedEventArgs e)
@@ -529,6 +541,20 @@ namespace LanecoverToolsWUI
                 _cts.Dispose();
                 autoMode = false;
                 dispatcherQueue.TryEnqueue(() => { BaseArSlider.IsEnabled = true; });
+            }
+        }
+
+        private void VerifyScorebarAsset(string folderPath)
+        {
+            if (File.Exists(folderPath+"/scorebar-bg.png"))
+            {
+                AssetStatusTextBlock.Text = "Discovered scorebar-bg.png asset.";
+                enablePath = true;
+            } else
+            {
+                AssetStatusTextBlock.Text = "Warning: No target scorebar-bg found in this directory.";
+                ShowNotification("No matching scorebar-bg.png discovered in the selected directory.", InfoBarSeverity.Warning);
+                enablePath = false;
             }
         }
     }
